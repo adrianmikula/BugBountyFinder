@@ -1,0 +1,43 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  threads:
+    virtual:
+      enabled: true
+
+spring:
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: llama3.2:3b
+
+app:
+  bounty:
+    polling:
+      interval-seconds: 60
+      batch-size: 10
+      enabled: true
+  repository:
+    clone:
+      base-path: ./test-repos
+      max-concurrent-clones: 5
+      timeout-seconds: 60
+
+logging:
+  level:
+    root: INFO
+    com.bugbounty: DEBUG
+

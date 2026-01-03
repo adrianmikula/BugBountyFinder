@@ -1,0 +1,122 @@
+spring:
+  application:
+    name: bug-bounty-finder
+  
+  # Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bugbounty
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  
+  # Redis Configuration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+  
+  # Virtual Threads (Project Loom)
+  threads:
+    virtual:
+      enabled: true
+
+# Spring AI - Ollama Configuration
+spring:
+  ai:
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        options:
+          model: ${OLLAMA_MODEL:llama3.2:3b}
+          temperature: 0.7
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+# Application Configuration
+app:
+  bounty:
+    polling:
+      interval-seconds: 300  # 5 minutes
+      batch-size: 50
+      enabled: true
+    platforms:
+      algora:
+        api-url: https://api.algora.io/v1
+        rate-limit-per-minute: 60
+      polar:
+        api-url: https://api.polar.sh
+        rate-limit-per-minute: 60
+      github:
+        api-url: https://api.github.com
+        rate-limit-per-hour: 5000
+  repository:
+    clone:
+      base-path: ${REPO_CLONE_PATH:./repos}
+      max-concurrent-clones: 10
+      timeout-seconds: 300
+  llm:
+    triage:
+      timeout-seconds: 30
+      max-retries: 3
+      min-confidence: 0.6
+      max-time-minutes: 60
+
+# Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      algoraApi:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+      polarApi:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+  ratelimiter:
+    instances:
+      algoraApi:
+        limitForPeriod: 60
+        limitRefreshPeriod: 60s
+        timeoutDuration: 5s
+      polarApi:
+        limitForPeriod: 60
+        limitRefreshPeriod: 60s
+        timeoutDuration: 5s
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.bugbounty: DEBUG
+    org.springframework.ai: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
