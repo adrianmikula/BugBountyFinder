@@ -38,9 +38,10 @@ REPO_CLONE_PATH = "./repos"
 # For complete command reference, see COMMANDS.md
 
 [tasks.setup]
-description = "Full project setup - installs dependencies and starts services"
-windows = "powershell -File scripts/setup.ps1"
-unix = "bash scripts/setup.sh"
+description = "Full project setup - installs mise, tools, and starts services"
+# Note: This task is typically run via the setup scripts which handle mise installation
+# The scripts then call mise tasks for the actual setup work
+run = "echo 'Please run: ./scripts/setup.ps1 (Windows) or ./scripts/setup.sh (Linux/Mac)'"
 
 [tasks.start-services]
 description = "Start Docker services (PostgreSQL and Redis)"

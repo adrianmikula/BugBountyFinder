@@ -59,11 +59,18 @@ src/
 ```
 
 The setup script will:
-- Check Java version
+- Install mise-en-place if not present
+- Use mise to install tools (Java 21, Gradle 8.5)
 - Start PostgreSQL and Redis via Docker
-- Install/verify Ollama and pull the model
-- Create necessary directories
+- Create configuration files and directories
 - Build the project
+
+After setup, use mise commands for daily development:
+```bash
+mise run test    # Run tests
+mise run run     # Run application
+mise tasks       # View all commands
+```
 
 ### Manual Setup
 

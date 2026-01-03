@@ -1,6 +1,2 @@
-# PowerShell script to stop Docker services
-
-Write-Host "Stopping PostgreSQL and Redis..." -ForegroundColor Blue
+# Stop Docker services
 docker compose down
-Write-Host "Services stopped!" -ForegroundColor Green
-

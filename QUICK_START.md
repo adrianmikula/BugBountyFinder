@@ -2,25 +2,35 @@
 
 Get up and running with Bug Bounty Finder in minutes.
 
-## Option 1: Using Mise (Recommended)
+## Option 1: Using Setup Script (Recommended)
 
-If you have [mise](https://mise.jdx.dev/) installed:
+The setup script will install mise if needed, then use mise for everything:
 
-```bash
-# 1. Install tools and setup
-mise install
-
-# 2. Run setup
-mise run setup
-
-# 3. Run tests
-mise run test
-
-# 4. Start application
-mise run run
+**Windows:**
+```powershell
+.\scripts\setup.ps1
 ```
 
-See `MISE_SETUP.md` for mise installation and setup.
+**Linux/Mac:**
+```bash
+./scripts/setup.sh
+```
+
+The script will:
+1. Install mise-en-place if not present
+2. Use mise to install tools (Java 21, Gradle 8.5)
+3. Start Docker services
+4. Create configuration files
+5. Build the project
+
+After setup, use mise commands:
+```bash
+mise run test    # Run tests
+mise run run     # Run application
+mise tasks       # View all commands
+```
+
+See `MISE_SETUP.md` for detailed mise information.
 
 ## Option 2: Manual Setup
 
