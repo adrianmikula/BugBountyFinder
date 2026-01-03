@@ -16,5 +16,7 @@ public interface BountyRepository extends JpaRepository<BountyEntity, UUID> {
     List<BountyEntity> findByStatus(BountyStatus status);
     
     List<BountyEntity> findByPlatformAndStatus(String platform, BountyStatus status);
+    
+    java.util.Optional<BountyEntity> findByIssueIdAndPlatform(String issueId, String platform);
 }
 

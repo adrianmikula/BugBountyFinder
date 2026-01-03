@@ -13,12 +13,14 @@ Automated bug bounty and PR bounty hunting system built with Spring Boot 3.x.
 ## Tech Stack
 
 - **Spring Boot 3.2+** with Java 21
+- **Gradle** for build automation
 - **Spring AI** for LLM orchestration
 - **PostgreSQL** for state management
 - **Redis** for caching and queues
 - **JGit** for Git operations
 - **Ollama** for local LLM inference
 - **Resilience4j** for circuit breakers and rate limiting
+- **Docker Compose** for local development
 
 ## Project Structure
 
@@ -40,35 +42,132 @@ src/
 ### Prerequisites
 
 - Java 21+
-- Maven 3.8+
-- PostgreSQL 15+
-- Redis 7+
+- Gradle 8.0+ (or use included wrapper)
+- Docker & Docker Compose
 - Ollama (for local LLM)
 
-### Setup
+### Quick Setup
 
-1. **Install Ollama and pull a model:**
+**Linux/Mac:**
+```bash
+./scripts/setup.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+.\scripts\setup.ps1
+```
+
+The setup script will:
+- Check Java version
+- Start PostgreSQL and Redis via Docker
+- Install/verify Ollama and pull the model
+- Create necessary directories
+- Build the project
+
+### Manual Setup
+
+1. **Start Docker services:**
    ```bash
+   docker compose up -d
+   ```
+
+2. **Install Ollama and pull a model:**
+   ```bash
+   # Linux/Mac
    curl -fsSL https://ollama.ai/install.sh | sh
+   
+   # Windows: Download from https://ollama.ai
+   
    ollama pull llama3.2:3b
    ```
 
-2. **Start PostgreSQL and Redis:**
+3. **Initialize Gradle wrapper:**
    ```bash
-   docker-compose up -d postgres redis
+   gradle wrapper
    ```
 
-3. **Configure application.yml** with your database credentials
-
-4. **Run the application:**
+4. **Build the project:**
    ```bash
-   ./mvnw spring-boot:run
+   ./gradlew build
    ```
+
+5. **Run the application:**
+   ```bash
+   ./gradlew bootRun
+   ```
+
+### Managing Services
+
+**Start services:**
+- Linux/Mac: `./scripts/start-services.sh`
+- Windows: `.\scripts\start-services.ps1`
+
+**Stop services:**
+- Linux/Mac: `./scripts/stop-services.sh`
+- Windows: `.\scripts\stop-services.ps1`
 
 ## Running Tests
 
+### Unit Tests
 ```bash
-./mvnw test
+./gradlew test
+```
+
+### Component Tests (Integration Tests)
+Component tests use Spring Boot Test with TestContainers to test major features in a real containerized environment:
+
+```bash
+# Run all tests including component tests
+./gradlew test
+
+# Run only component tests
+./gradlew test --tests "com.bugbounty.component.*"
+
+# Run specific component test
+./gradlew test --tests "com.bugbounty.component.BountyPollingComponentTest"
+```
+
+**Component Test Coverage:**
+- `BountyPollingComponentTest` - End-to-end polling, filtering, and queueing
+- `TriageQueueComponentTest` - Redis queue operations with priority ordering
+- `BountyFilteringComponentTest` - LLM-based filtering with mocked ChatClient
+- `RepositoryServiceComponentTest` - Git operations and repository management
+- `ApiClientComponentTest` - HTTP client integration with MockWebServer
+
+**Note:** Component tests require Docker to be running for TestContainers.
+
+## Command Reference
+
+### Using Mise (Recommended)
+
+If you have [mise](https://mise.jdx.dev/) installed:
+
+```bash
+mise install          # Install tools and setup
+mise tasks            # View all available commands
+mise run setup        # Run setup
+mise run test         # Run tests
+mise run run          # Run application
+```
+
+See `MISE_SETUP.md` for detailed mise setup instructions.
+
+### Direct Commands
+
+See `COMMANDS.md` for a complete catalog of all available commands, scripts, and workflows.
+
+## Building
+
+```bash
+# Build without tests
+./gradlew build -x test
+
+# Build with tests
+./gradlew build
+
+# Create executable JAR
+./gradlew bootJar
 ```
 
 ## Development Status
@@ -79,6 +178,10 @@ src/
 - BountyPollingService with tests
 - RepositoryService with tests
 - JPA entities and repositories
+- API client implementations (Algora, Polar)
+- Triage queue service with Redis
+- LLM-based bounty filtering service
+- **Component tests with Spring Boot Test + TestContainers**
 
 ### 🚧 In Progress
 - API client implementations (Algora, Polar)
@@ -93,4 +196,5 @@ src/
 ## License
 
 MIT
+
 

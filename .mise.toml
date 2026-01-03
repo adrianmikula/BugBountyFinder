@@ -1,0 +1,109 @@
+# mise-en-place (mise) configuration
+# Tool version management and project setup
+# Install mise: https://mise.jdx.dev/getting-started.html
+
+[tools]
+# Java 21 - Required for the project
+java = "21.0.0"
+
+# Gradle - Build tool
+gradle = "8.5"
+
+# Docker - For containerized services
+# Note: Docker version managed by system, not mise
+
+# Ollama - LLM runtime
+# Note: Ollama installed separately, not via mise
+
+[env]
+# Project-specific environment variables
+# These are loaded when entering the project directory
+
+# Database Configuration
+DB_USERNAME = "postgres"
+DB_PASSWORD = "postgres"
+
+# Redis Configuration  
+REDIS_HOST = "localhost"
+REDIS_PORT = "6379"
+
+# Ollama Configuration
+OLLAMA_BASE_URL = "http://localhost:11434"
+OLLAMA_MODEL = "llama3.2:3b"
+
+# Repository Clone Path
+REPO_CLONE_PATH = "./repos"
+
+# Essential development workflow tasks
+# For complete command reference, see COMMANDS.md
+
+[tasks.setup]
+description = "Full project setup - installs dependencies and starts services"
+windows = "powershell -File scripts/setup.ps1"
+unix = "bash scripts/setup.sh"
+
+[tasks.start-services]
+description = "Start Docker services (PostgreSQL and Redis)"
+windows = "powershell -File scripts/start-services.ps1"
+unix = "bash scripts/start-services.sh"
+
+[tasks.stop-services]
+description = "Stop Docker services"
+windows = "powershell -File scripts/stop-services.ps1"
+unix = "bash scripts/stop-services.sh"
+
+[tasks.build]
+description = "Build the project (without tests)"
+windows = "gradlew.bat build -x test"
+unix = "./gradlew build -x test"
+
+[tasks.build-all]
+description = "Build the project with tests"
+windows = "gradlew.bat build"
+unix = "./gradlew build"
+
+[tasks.test]
+description = "Run all tests"
+windows = "gradlew.bat test"
+unix = "./gradlew test"
+
+[tasks.test-unit]
+description = "Run only unit tests"
+windows = "gradlew.bat test --tests \"*Test\" --exclude-tests \"*ComponentTest\""
+unix = "./gradlew test --tests \"*Test\" --exclude-tests \"*ComponentTest\""
+
+[tasks.test-component]
+description = "Run only component tests (requires Docker)"
+windows = "gradlew.bat test --tests \"com.bugbounty.component.*\""
+unix = "./gradlew test --tests \"com.bugbounty.component.*\""
+
+[tasks.run]
+description = "Run the application"
+windows = "gradlew.bat bootRun"
+unix = "./gradlew bootRun"
+
+[tasks.clean]
+description = "Clean build artifacts"
+windows = "gradlew.bat clean"
+unix = "./gradlew clean"
+
+[tasks.docker-logs]
+description = "View Docker service logs (follow mode)"
+run = "docker compose logs -f"
+
+[tasks.docker-ps]
+description = "Check Docker services status"
+run = "docker compose ps"
+
+[tasks.db-connect]
+description = "Connect to PostgreSQL database"
+run = "docker exec -it bugbounty-postgres psql -U postgres -d bugbounty"
+
+[tasks.redis-connect]
+description = "Connect to Redis CLI"
+run = "docker exec -it bugbounty-redis redis-cli"
+
+[tasks.health]
+description = "Check application health (requires app to be running)"
+run = "curl http://localhost:8080/actuator/health"
+

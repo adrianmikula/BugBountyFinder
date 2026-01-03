@@ -1,0 +1,102 @@
+spring:
+  application:
+    name: bug-bounty-finder-test
+  
+  # Database Configuration (will be overridden by TestContainers)
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:bugbounty_test}
+    username: ${POSTGRES_USER:test}
+    password: ${POSTGRES_PASSWORD:test}
+    driver-class-name: org.postgresql.Driver
+  
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  
+  # Redis Configuration (will be overridden by TestContainers)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+  
+  # Virtual Threads
+  threads:
+    virtual:
+      enabled: true
+
+# Spring AI - Mock Ollama (will be mocked in tests)
+spring:
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: llama3.2:3b
+          temperature: 0.7
+
+# Application Configuration
+app:
+  bounty:
+    polling:
+      interval-seconds: 60
+      batch-size: 10
+      enabled: true
+    platforms:
+      algora:
+        api-url: http://localhost:${MOCK_SERVER_PORT:8080}
+        rate-limit-per-minute: 60
+      polar:
+        api-url: http://localhost:${MOCK_SERVER_PORT:8080}
+        rate-limit-per-minute: 60
+  repository:
+    clone:
+      base-path: ./test-repos
+      max-concurrent-clones: 5
+      timeout-seconds: 60
+  llm:
+    triage:
+      timeout-seconds: 30
+      max-retries: 3
+      min-confidence: 0.5
+      max-time-minutes: 60
+
+# Resilience4j Configuration (relaxed for testing)
+resilience4j:
+  circuitbreaker:
+    instances:
+      algoraApi:
+        registerHealthIndicator: true
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 2
+        failureRateThreshold: 50
+      polarApi:
+        registerHealthIndicator: true
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 2
+        failureRateThreshold: 50
+  ratelimiter:
+    instances:
+      algoraApi:
+        limitForPeriod: 1000
+        limitRefreshPeriod: 1s
+        timeoutDuration: 5s
+      polarApi:
+        limitForPeriod: 1000
+        limitRefreshPeriod: 1s
+        timeoutDuration: 5s
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.bugbounty: DEBUG
+    org.springframework: WARN
+    org.hibernate: INFO
+
