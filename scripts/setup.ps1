@@ -19,6 +19,20 @@ Write-Host "Installing tools (Java 21, Gradle 8.5)..." -ForegroundColor Blue
 mise install
 Write-Host "Tools installed" -ForegroundColor Green
 
+# Initialize Gradle wrapper if needed
+if (-not (Test-Path gradlew.bat)) {
+    Write-Host "Initializing Gradle wrapper..." -ForegroundColor Blue
+    mise run -- gradle wrapper --gradle-version 8.5
+    Write-Host "Gradle wrapper initialized" -ForegroundColor Green
+}
+
+# Initialize Gradle wrapper if needed
+if (-not (Test-Path gradlew.bat)) {
+    Write-Host "Initializing Gradle wrapper..." -ForegroundColor Blue
+    mise run -- gradle wrapper --gradle-version 8.5
+    Write-Host "Gradle wrapper initialized" -ForegroundColor Green
+}
+
 # Check Docker
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     Write-Host "Docker is not installed. Please install Docker Desktop." -ForegroundColor Red

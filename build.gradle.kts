@@ -2,7 +2,6 @@ plugins {
     java
     id("org.springframework.boot") version "3.2.0"
     id("io.spring.dependency-management") version "1.1.4"
-    id("org.gradle.toolchains.foojay-resolver-convention") version "0.7.0"
 }
 
 group = "com.bugbounty"
@@ -25,9 +24,12 @@ repositories {
     maven {
         url = uri("https://repo.spring.io/milestone")
     }
+    maven {
+        url = uri("https://repo.spring.io/snapshot")
+    }
 }
 
-extra["springAiVersion"] = "1.0.0-M4"
+extra["springAiVersion"] = "0.8.0"
 extra["resilience4jVersion"] = "2.1.0"
 extra["jgitVersion"] = "6.8.0.202311291450-r"
 extra["mockWebServerVersion"] = "4.12.0"
@@ -44,6 +46,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webflux")
 
     // Spring AI
+    implementation("org.springframework.ai:spring-ai-core:${property("springAiVersion")}")
     implementation("org.springframework.ai:spring-ai-ollama-spring-boot-starter:${property("springAiVersion")}")
 
     // Resilience4j
@@ -65,7 +68,8 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.testcontainers:postgresql:${property("testcontainersVersion")}")
     testImplementation("org.testcontainers:junit-jupiter:${property("testcontainersVersion")}")
-    testImplementation("org.testcontainers:redis:${property("testcontainersVersion")}")
+    testImplementation("org.testcontainers:testcontainers:${property("testcontainersVersion")}")
+    testImplementation("io.projectreactor:reactor-test")
     testImplementation("com.h2database:h2")
     testImplementation("com.squareup.okhttp3:mockwebserver:${property("mockWebServerVersion")}")
     testImplementation("org.awaitility:awaitility:${property("awaitilityVersion")}")
@@ -75,6 +79,7 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.testcontainers:testcontainers-bom:${property("testcontainersVersion")}")
+        mavenBom("org.springframework.ai:spring-ai-bom:${property("springAiVersion")}")
     }
 }
 

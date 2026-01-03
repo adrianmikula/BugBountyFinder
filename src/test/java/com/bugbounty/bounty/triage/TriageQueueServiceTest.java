@@ -101,11 +101,7 @@ class TriageQueueServiceTest {
         // Given
         String bountyJson = "{\"id\":\"test-id\",\"issueId\":\"issue-123\"}";
         Set<ZSetOperations.TypedTuple<String>> tuples = Set.of(
-                new ZSetOperations.TypedTuple<String>() {
-                    @Override
-                    public String getValue() {
-                        return bountyJson;
-                    }
+                new DefaultTypedTuple<>(bountyJson, 100.0)
 
                     @Override
                     public Double getScore() {

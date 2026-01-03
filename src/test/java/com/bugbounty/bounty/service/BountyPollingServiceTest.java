@@ -112,7 +112,7 @@ class BountyPollingServiceTest {
         // Then
         assertNotNull(result);
         assertEquals(0, result.size());
-        verify(bountyRepository, never()).save(any(Bounty.class));
+        verify(bountyRepository, never()).save(any());
     }
 
     @Test

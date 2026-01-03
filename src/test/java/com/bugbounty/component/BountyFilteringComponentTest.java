@@ -9,7 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.ChatClient;
 import org.springframework.ai.chat.ChatResponse;
-import org.springframework.ai.chat.Generation;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -55,13 +55,12 @@ class BountyFilteringComponentTest extends AbstractComponentTest {
                 .build();
 
         ChatResponse mockResponse = mock(ChatResponse.class);
-        ChatResponse.Result mockResult = mock(ChatResponse.Result.class);
-        Generation mockGeneration = mock(Generation.class);
+        AssistantMessage mockAssistantMessage = mock(AssistantMessage.class);
 
         when(chatClient.call(any(Prompt.class))).thenReturn(mockResponse);
-        when(mockResponse.getResult()).thenReturn(mockResult);
-        when(mockResult.getOutput()).thenReturn(mockGeneration);
-        when(mockGeneration.getContent()).thenReturn("""
+        when(mockResponse.getResult()).thenReturn(mockResponse.getResult());
+        when(mockResponse.getResult().getOutput()).thenReturn(mockAssistantMessage);
+        when(mockAssistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": true,
                   "confidence": 0.9,
@@ -96,13 +95,12 @@ class BountyFilteringComponentTest extends AbstractComponentTest {
                 .build();
 
         ChatResponse mockResponse = mock(ChatResponse.class);
-        ChatResponse.Result mockResult = mock(ChatResponse.Result.class);
-        Generation mockGeneration = mock(Generation.class);
+        AssistantMessage mockAssistantMessage = mock(AssistantMessage.class);
 
         when(chatClient.call(any(Prompt.class))).thenReturn(mockResponse);
-        when(mockResponse.getResult()).thenReturn(mockResult);
-        when(mockResult.getOutput()).thenReturn(mockGeneration);
-        when(mockGeneration.getContent()).thenReturn("""
+        when(mockResponse.getResult()).thenReturn(mockResponse.getResult());
+        when(mockResponse.getResult().getOutput()).thenReturn(mockAssistantMessage);
+        when(mockAssistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": false,
                   "confidence": 0.2,
@@ -136,13 +134,12 @@ class BountyFilteringComponentTest extends AbstractComponentTest {
                 .build();
 
         ChatResponse mockResponse = mock(ChatResponse.class);
-        ChatResponse.Result mockResult = mock(ChatResponse.Result.class);
-        Generation mockGeneration = mock(Generation.class);
+        AssistantMessage mockAssistantMessage = mock(AssistantMessage.class);
 
         when(chatClient.call(any(Prompt.class))).thenReturn(mockResponse);
-        when(mockResponse.getResult()).thenReturn(mockResult);
-        when(mockResult.getOutput()).thenReturn(mockGeneration);
-        when(mockGeneration.getContent()).thenReturn("""
+        when(mockResponse.getResult()).thenReturn(mockResponse.getResult());
+        when(mockResponse.getResult().getOutput()).thenReturn(mockAssistantMessage);
+        when(mockAssistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": true,
                   "confidence": 0.4,
@@ -174,13 +171,12 @@ class BountyFilteringComponentTest extends AbstractComponentTest {
                 .build();
 
         ChatResponse mockResponse = mock(ChatResponse.class);
-        ChatResponse.Result mockResult = mock(ChatResponse.Result.class);
-        Generation mockGeneration = mock(Generation.class);
+        AssistantMessage mockAssistantMessage = mock(AssistantMessage.class);
 
         when(chatClient.call(any(Prompt.class))).thenReturn(mockResponse);
-        when(mockResponse.getResult()).thenReturn(mockResult);
-        when(mockResult.getOutput()).thenReturn(mockGeneration);
-        when(mockGeneration.getContent()).thenReturn("""
+        when(mockResponse.getResult()).thenReturn(mockResponse.getResult());
+        when(mockResponse.getResult().getOutput()).thenReturn(mockAssistantMessage);
+        when(mockAssistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": true,
                   "confidence": 0.8,

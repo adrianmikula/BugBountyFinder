@@ -4,8 +4,8 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.containers.RedisContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -28,8 +28,9 @@ public class ComponentTestConfiguration {
 
     @Bean(initMethod = "start", destroyMethod = "stop")
     @Primary
-    public RedisContainer redisContainer() {
-        return new RedisContainer(DockerImageName.parse("redis:7-alpine"))
+    public GenericContainer<?> redisContainer() {
+        return new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
+                .withExposedPorts(6379)
                 .withReuse(true);
     }
 }

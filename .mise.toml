@@ -45,48 +45,48 @@ run = "echo 'Please run: ./scripts/setup.ps1 (Windows) or ./scripts/setup.sh (Li
 
 [tasks.start-services]
 description = "Start Docker services (PostgreSQL and Redis)"
-windows = "powershell -File scripts/start-services.ps1"
-unix = "bash scripts/start-services.sh"
+run_windows = "powershell -File scripts/start-services.ps1"
+run = "bash scripts/start-services.sh"
 
 [tasks.stop-services]
 description = "Stop Docker services"
-windows = "powershell -File scripts/stop-services.ps1"
-unix = "bash scripts/stop-services.sh"
+run_windows = "powershell -File scripts/stop-services.ps1"
+run = "bash scripts/stop-services.sh"
 
 [tasks.build]
 description = "Build the project (without tests)"
-windows = "gradlew.bat build -x test"
-unix = "./gradlew build -x test"
+run_windows = "powershell -File scripts/gradle-build.ps1"
+run = "bash -c 'if [ -f gradlew ]; then ./gradlew build -x test; else gradle build -x test; fi'"
 
 [tasks.build-all]
 description = "Build the project with tests"
-windows = "gradlew.bat build"
-unix = "./gradlew build"
+run_windows = "powershell -File scripts/gradle-build.ps1 -WithTests"
+run = "bash -c 'if [ -f gradlew ]; then ./gradlew build; else gradle build; fi'"
 
 [tasks.test]
 description = "Run all tests"
-windows = "gradlew.bat test"
-unix = "./gradlew test"
+run_windows = "powershell -File scripts/gradle-test.ps1"
+run = "bash -c 'if [ -f gradlew ]; then ./gradlew test; else gradle test; fi'"
 
 [tasks.test-unit]
 description = "Run only unit tests"
-windows = "gradlew.bat test --tests \"*Test\" --exclude-tests \"*ComponentTest\""
-unix = "./gradlew test --tests \"*Test\" --exclude-tests \"*ComponentTest\""
+run_windows = "powershell -File scripts/gradle-test.ps1 -UnitOnly"
+run = "bash -c 'if [ -f gradlew ]; then ./gradlew test --tests \"*Test\" --exclude-tests \"*ComponentTest\"; else gradle test --tests \"*Test\" --exclude-tests \"*ComponentTest\"; fi'"
 
 [tasks.test-component]
 description = "Run only component tests (requires Docker)"
-windows = "gradlew.bat test --tests \"com.bugbounty.component.*\""
-unix = "./gradlew test --tests \"com.bugbounty.component.*\""
+run_windows = "powershell -File scripts/gradle-test.ps1 -ComponentOnly"
+run = "bash -c 'if [ -f gradlew ]; then ./gradlew test --tests \"com.bugbounty.component.*\"; else gradle test --tests \"com.bugbounty.component.*\"; fi'"
 
 [tasks.run]
 description = "Run the application"
-windows = "gradlew.bat bootRun"
-unix = "./gradlew bootRun"
+run_windows = "powershell -File scripts/gradle-run.ps1"
+run = "bash -c 'if [ -f gradlew ]; then ./gradlew bootRun; else gradle bootRun; fi'"
 
 [tasks.clean]
 description = "Clean build artifacts"
-windows = "gradlew.bat clean"
-unix = "./gradlew clean"
+run_windows = "powershell -File scripts/gradle-clean.ps1"
+run = "bash -c 'if [ -f gradlew ]; then ./gradlew clean; else gradle clean; fi'"
 
 [tasks.docker-logs]
 description = "View Docker service logs (follow mode)"

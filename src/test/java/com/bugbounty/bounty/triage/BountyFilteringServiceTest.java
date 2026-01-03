@@ -11,7 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.ChatClient;
 import org.springframework.ai.chat.ChatResponse;
-import org.springframework.ai.chat.Generation;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 
 import java.math.BigDecimal;
@@ -31,10 +31,7 @@ class BountyFilteringServiceTest {
     private ChatResponse chatResponse;
 
     @Mock
-    private ChatResponse.Result result;
-
-    @Mock
-    private Generation generation;
+    private AssistantMessage assistantMessage;
 
     @InjectMocks
     private BountyFilteringService filteringService;
@@ -59,9 +56,9 @@ class BountyFilteringServiceTest {
                 .build();
 
         when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
-        when(chatResponse.getResult()).thenReturn(result);
-        when(result.getOutput()).thenReturn(generation);
-        when(generation.getContent()).thenReturn("""
+        when(chatResponse.getResult()).thenReturn(chatResponse.getResult());
+        when(chatResponse.getResult().getOutput()).thenReturn(assistantMessage);
+        when(assistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": true,
                   "confidence": 0.9,
@@ -96,9 +93,9 @@ class BountyFilteringServiceTest {
                 .build();
 
         when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
-        when(chatResponse.getResult()).thenReturn(result);
-        when(result.getOutput()).thenReturn(generation);
-        when(generation.getContent()).thenReturn("""
+        when(chatResponse.getResult()).thenReturn(chatResponse.getResult());
+        when(chatResponse.getResult().getOutput()).thenReturn(assistantMessage);
+        when(assistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": false,
                   "confidence": 0.2,
@@ -130,9 +127,9 @@ class BountyFilteringServiceTest {
                 .build();
 
         when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
-        when(chatResponse.getResult()).thenReturn(result);
-        when(result.getOutput()).thenReturn(generation);
-        when(generation.getContent()).thenReturn("""
+        when(chatResponse.getResult()).thenReturn(chatResponse.getResult());
+        when(chatResponse.getResult().getOutput()).thenReturn(assistantMessage);
+        when(assistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": false,
                   "confidence": 0.1,
@@ -188,9 +185,9 @@ class BountyFilteringServiceTest {
                 .build();
 
         when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
-        when(chatResponse.getResult()).thenReturn(result);
-        when(result.getOutput()).thenReturn(generation);
-        when(generation.getContent()).thenReturn("""
+        when(chatResponse.getResult()).thenReturn(chatResponse.getResult());
+        when(chatResponse.getResult().getOutput()).thenReturn(assistantMessage);
+        when(assistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": true,
                   "confidence": 0.4,
@@ -223,9 +220,9 @@ class BountyFilteringServiceTest {
                 .build();
 
         when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
-        when(chatResponse.getResult()).thenReturn(result);
-        when(result.getOutput()).thenReturn(generation);
-        when(generation.getContent()).thenReturn("""
+        when(chatResponse.getResult()).thenReturn(chatResponse.getResult());
+        when(chatResponse.getResult().getOutput()).thenReturn(assistantMessage);
+        when(assistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": true,
                   "confidence": 0.8,

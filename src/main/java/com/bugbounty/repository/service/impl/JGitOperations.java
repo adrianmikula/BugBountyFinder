@@ -37,9 +37,15 @@ public class JGitOperations implements GitOperations {
             
             log.debug("Repository cloned successfully");
             return git;
+        } catch (GitAPIException e) {
+            log.error("Failed to clone repository: {}", url, e);
+            throw e;
+        } catch (IOException e) {
+            log.error("Failed to clone repository: {}", url, e);
+            throw new RuntimeException("Clone failed: " + e.getMessage(), e);
         } catch (Exception e) {
             log.error("Failed to clone repository: {}", url, e);
-            throw new GitAPIException("Clone failed", e);
+            throw new RuntimeException("Clone failed: " + e.getMessage(), e);
         }
     }
 
@@ -59,9 +65,12 @@ public class JGitOperations implements GitOperations {
     public PullResult pull(Git git) throws GitAPIException {
         try {
             return git.pull().call();
+        } catch (GitAPIException e) {
+            log.error("Failed to pull repository", e);
+            throw e;
         } catch (Exception e) {
             log.error("Failed to pull repository", e);
-            throw new GitAPIException("Pull failed", e);
+            throw new RuntimeException("Pull failed: " + e.getMessage(), e);
         }
     }
 
