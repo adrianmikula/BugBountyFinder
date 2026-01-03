@@ -1,4 +1,4 @@
-package com.bugbounty.config;
+package com.bugbounty.component;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;

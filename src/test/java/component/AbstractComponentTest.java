@@ -1,6 +1,4 @@
 package com.bugbounty.component;
-
-import com.bugbounty.config.ComponentTestConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;

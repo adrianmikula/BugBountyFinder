@@ -2,6 +2,7 @@ package com.bugbounty.bounty.service;
 
 import com.bugbounty.bounty.domain.Bounty;
 import com.bugbounty.bounty.domain.BountyStatus;
+import com.bugbounty.bounty.service.impl.PolarApiClientImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -88,7 +89,7 @@ class PolarApiClientTest {
         assertEquals("issue-123", bounty.getIssueId());
         assertEquals("https://github.com/owner/repo", bounty.getRepositoryUrl());
         assertEquals("polar", bounty.getPlatform());
-        assertEquals(new BigDecimal("250.00"), bounty.getAmount());
+        assertEquals(0, new BigDecimal("250.00").compareTo(bounty.getAmount()));
         assertEquals("USD", bounty.getCurrency());
         assertEquals("Fix authentication bug", bounty.getTitle());
         assertEquals("The authentication flow is broken", bounty.getDescription());

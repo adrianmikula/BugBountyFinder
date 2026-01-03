@@ -137,6 +137,29 @@ class BountyPollingServiceTest {
 
         when(algoraApiClient.fetchBounties()).thenReturn(Flux.just(highValueBounty, lowValueBounty));
         when(bountyRepository.existsByIssueIdAndPlatform(anyString(), anyString())).thenReturn(false);
+        when(bountyMapper.toEntity(any(Bounty.class))).thenAnswer(invocation -> {
+            Bounty b = invocation.getArgument(0);
+            return BountyEntity.builder()
+                    .issueId(b.getIssueId())
+                    .repositoryUrl(b.getRepositoryUrl())
+                    .platform(b.getPlatform())
+                    .amount(b.getAmount())
+                    .status(b.getStatus())
+                    .build();
+        });
+        when(bountyRepository.save(any(BountyEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bountyMapper.toDomain(any(BountyEntity.class))).thenAnswer(invocation -> {
+            BountyEntity e = invocation.getArgument(0);
+            return Bounty.builder()
+                    .issueId(e.getIssueId())
+                    .repositoryUrl(e.getRepositoryUrl())
+                    .platform(e.getPlatform())
+                    .amount(e.getAmount())
+                    .status(e.getStatus())
+                    .build();
+        });
+        when(filteringService.shouldProcess(any(Bounty.class)))
+                .thenReturn(new com.bugbounty.bounty.triage.FilterResult(true, 0.8, 30, "Good candidate"));
 
         // When
         List<Bounty> result = bountyPollingService.pollAlgora(new BigDecimal("50.00"))
@@ -187,6 +210,8 @@ class BountyPollingServiceTest {
         when(bountyMapper.toEntity(any(Bounty.class))).thenReturn(entity);
         when(bountyRepository.save(any(BountyEntity.class))).thenReturn(entity);
         when(bountyMapper.toDomain(any(BountyEntity.class))).thenReturn(newBounty);
+        when(filteringService.shouldProcess(any(Bounty.class)))
+                .thenReturn(new com.bugbounty.bounty.triage.FilterResult(true, 0.8, 30, "Good candidate"));
 
         // When
         List<Bounty> result = bountyPollingService.pollPolar().collectList().block();
@@ -239,6 +264,8 @@ class BountyPollingServiceTest {
             BountyEntity e = invocation.getArgument(0);
             return e.getPlatform().equals("algora") ? algoraBounty : polarBounty;
         });
+        when(filteringService.shouldProcess(any(Bounty.class)))
+                .thenReturn(new com.bugbounty.bounty.triage.FilterResult(true, 0.8, 30, "Good candidate"));
 
         // When
         List<Bounty> result = bountyPollingService.pollAllPlatforms().collectList().block();

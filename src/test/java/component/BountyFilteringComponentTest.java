@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 /**
  * Component test for BountyFilteringService.
@@ -38,6 +39,33 @@ class BountyFilteringComponentTest extends AbstractComponentTest {
     @BeforeEach
     void setUp() {
         reset(chatClient);
+    }
+
+    /**
+     * Helper method to mock the ChatResponse result chain.
+     * Uses reflection to work around the inaccessible Generation type.
+     */
+    @SuppressWarnings({"unchecked"})
+    private void mockChatResponseResult(ChatResponse mockResponse, AssistantMessage mockAssistantMessage) {
+        try {
+            java.lang.reflect.Method getResultMethod = ChatResponse.class.getMethod("getResult");
+            Class<?> resultType = getResultMethod.getReturnType();
+            
+            // Create a mock for the result with Answer to intercept method calls
+            Object resultMock = mock(resultType, invocation -> {
+                java.lang.reflect.Method method = invocation.getMethod();
+                if ("getOutput".equals(method.getName())) {
+                    return mockAssistantMessage;
+                }
+                // For other methods, return default mock behavior
+                return null;
+            });
+            
+            // Use doReturn to set up getResult() to return our mock
+            lenient().doReturn(resultMock).when(mockResponse).getResult();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to mock ChatResponse result: " + e.getMessage(), e);
+        }
     }
 
     @Test
@@ -58,8 +86,7 @@ class BountyFilteringComponentTest extends AbstractComponentTest {
         AssistantMessage mockAssistantMessage = mock(AssistantMessage.class);
 
         when(chatClient.call(any(Prompt.class))).thenReturn(mockResponse);
-        when(mockResponse.getResult()).thenReturn(mockResponse.getResult());
-        when(mockResponse.getResult().getOutput()).thenReturn(mockAssistantMessage);
+        mockChatResponseResult(mockResponse, mockAssistantMessage);
         when(mockAssistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": true,
@@ -98,8 +125,7 @@ class BountyFilteringComponentTest extends AbstractComponentTest {
         AssistantMessage mockAssistantMessage = mock(AssistantMessage.class);
 
         when(chatClient.call(any(Prompt.class))).thenReturn(mockResponse);
-        when(mockResponse.getResult()).thenReturn(mockResponse.getResult());
-        when(mockResponse.getResult().getOutput()).thenReturn(mockAssistantMessage);
+        mockChatResponseResult(mockResponse, mockAssistantMessage);
         when(mockAssistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": false,
@@ -137,8 +163,7 @@ class BountyFilteringComponentTest extends AbstractComponentTest {
         AssistantMessage mockAssistantMessage = mock(AssistantMessage.class);
 
         when(chatClient.call(any(Prompt.class))).thenReturn(mockResponse);
-        when(mockResponse.getResult()).thenReturn(mockResponse.getResult());
-        when(mockResponse.getResult().getOutput()).thenReturn(mockAssistantMessage);
+        mockChatResponseResult(mockResponse, mockAssistantMessage);
         when(mockAssistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": true,
@@ -174,8 +199,7 @@ class BountyFilteringComponentTest extends AbstractComponentTest {
         AssistantMessage mockAssistantMessage = mock(AssistantMessage.class);
 
         when(chatClient.call(any(Prompt.class))).thenReturn(mockResponse);
-        when(mockResponse.getResult()).thenReturn(mockResponse.getResult());
-        when(mockResponse.getResult().getOutput()).thenReturn(mockAssistantMessage);
+        mockChatResponseResult(mockResponse, mockAssistantMessage);
         when(mockAssistantMessage.getContent()).thenReturn("""
                 {
                   "shouldProcess": true,

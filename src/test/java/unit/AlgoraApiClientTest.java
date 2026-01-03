@@ -2,6 +2,7 @@ package com.bugbounty.bounty.service;
 
 import com.bugbounty.bounty.domain.Bounty;
 import com.bugbounty.bounty.domain.BountyStatus;
+import com.bugbounty.bounty.service.impl.AlgoraApiClientImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -93,7 +94,7 @@ class AlgoraApiClientTest {
         assertEquals("issue-123", first.getIssueId());
         assertEquals("https://github.com/owner/repo", first.getRepositoryUrl());
         assertEquals("algora", first.getPlatform());
-        assertEquals(new BigDecimal("150.00"), first.getAmount());
+        assertEquals(0, new BigDecimal("150.00").compareTo(first.getAmount()));
         assertEquals("Fix React hydration error", first.getTitle());
         assertEquals(BountyStatus.OPEN, first.getStatus());
 

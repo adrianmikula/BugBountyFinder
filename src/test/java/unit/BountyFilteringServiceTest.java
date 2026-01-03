@@ -9,6 +9,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.chat.ChatClient;
 import org.springframework.ai.chat.ChatResponse;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -21,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("BountyFilteringService Tests")
 class BountyFilteringServiceTest {
 
@@ -33,12 +38,45 @@ class BountyFilteringServiceTest {
     @Mock
     private AssistantMessage assistantMessage;
 
-    @InjectMocks
+    private ObjectMapper objectMapper;
+
     private BountyFilteringService filteringService;
 
     @BeforeEach
     void setUp() {
-        // Setup common mocks
+        // Use real ObjectMapper for JSON parsing
+        objectMapper = new ObjectMapper();
+        filteringService = new BountyFilteringService(chatClient, objectMapper);
+    }
+
+    /**
+     * Helper method to mock the ChatResponse result chain.
+     * Uses reflection to work around the inaccessible Generation type.
+     */
+    @SuppressWarnings({"unchecked"})
+    private void mockChatResponseResult(String jsonContent) {
+        try {
+            java.lang.reflect.Method getResultMethod = ChatResponse.class.getMethod("getResult");
+            Class<?> resultType = getResultMethod.getReturnType();
+            
+            // Set up assistantMessage content with lenient stubbing
+            lenient().when(assistantMessage.getContent()).thenReturn(jsonContent);
+            
+            // Create a mock for the result with Answer to intercept method calls
+            Object resultMock = mock(resultType, (org.mockito.stubbing.Answer<Object>) invocation -> {
+                java.lang.reflect.Method method = invocation.getMethod();
+                if ("getOutput".equals(method.getName())) {
+                    return assistantMessage;
+                }
+                // For other methods, return null (Mockito default)
+                return null;
+            });
+            
+            // Use lenient doReturn to set up getResult() to return our mock
+            lenient().doReturn(resultMock).when(chatResponse).getResult();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to mock ChatResponse result: " + e.getMessage(), e);
+        }
     }
 
     @Test
@@ -55,17 +93,17 @@ class BountyFilteringServiceTest {
                 .status(BountyStatus.OPEN)
                 .build();
 
-        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
-        when(chatResponse.getResult()).thenReturn(chatResponse.getResult());
-        when(chatResponse.getResult().getOutput()).thenReturn(assistantMessage);
-        when(assistantMessage.getContent()).thenReturn("""
+        // Mock the result chain: chatResponse.getResult().getOutput() returns assistantMessage
+        String jsonResponse = """
                 {
                   "shouldProcess": true,
                   "confidence": 0.9,
                   "estimatedTimeMinutes": 15,
                   "reason": "Simple typo fix, low complexity, high confidence"
                 }
-                """);
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
 
         // When
         FilterResult result = filteringService.shouldProcess(bounty);
@@ -92,17 +130,17 @@ class BountyFilteringServiceTest {
                 .status(BountyStatus.OPEN)
                 .build();
 
-        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
-        when(chatResponse.getResult()).thenReturn(chatResponse.getResult());
-        when(chatResponse.getResult().getOutput()).thenReturn(assistantMessage);
-        when(assistantMessage.getContent()).thenReturn("""
+        // Mock the result chain: chatResponse.getResult().getOutput() returns assistantMessage
+        String jsonResponse = """
                 {
                   "shouldProcess": false,
                   "confidence": 0.2,
                   "estimatedTimeMinutes": 480,
                   "reason": "Too complex, low value, requires extensive refactoring"
                 }
-                """);
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
 
         // When
         FilterResult result = filteringService.shouldProcess(bounty);
@@ -126,17 +164,17 @@ class BountyFilteringServiceTest {
                 .status(BountyStatus.OPEN)
                 .build();
 
-        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
-        when(chatResponse.getResult()).thenReturn(chatResponse.getResult());
-        when(chatResponse.getResult().getOutput()).thenReturn(assistantMessage);
-        when(assistantMessage.getContent()).thenReturn("""
+        // Mock the result chain: chatResponse.getResult().getOutput() returns assistantMessage
+        String jsonResponse = """
                 {
                   "shouldProcess": false,
                   "confidence": 0.1,
                   "estimatedTimeMinutes": 0,
                   "reason": "Insufficient information to assess fixability"
                 }
-                """);
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
 
         // When
         FilterResult result = filteringService.shouldProcess(bounty);
@@ -168,6 +206,7 @@ class BountyFilteringServiceTest {
         assertNotNull(result);
         // Should default to false on error (fail-safe)
         assertFalse(result.shouldProcess());
+        verify(chatClient, times(1)).call(any(Prompt.class));
     }
 
     @Test
@@ -184,17 +223,19 @@ class BountyFilteringServiceTest {
                 .status(BountyStatus.OPEN)
                 .build();
 
-        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
-        when(chatResponse.getResult()).thenReturn(chatResponse.getResult());
-        when(chatResponse.getResult().getOutput()).thenReturn(assistantMessage);
-        when(assistantMessage.getContent()).thenReturn("""
+        // Mock the result chain: chatResponse.getResult().getOutput() returns assistantMessage
+        // Note: This test checks that low confidence overrides shouldProcess=true
+        // The LLM returns shouldProcess=true, but confidence 0.4 < 0.7 threshold, so it should be rejected
+        String jsonResponse = """
                 {
                   "shouldProcess": true,
                   "confidence": 0.4,
                   "estimatedTimeMinutes": 30,
                   "reason": "Possible fix but low confidence"
                 }
-                """);
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
 
         // When
         FilterResult result = filteringService.shouldProcess(bounty, 0.7); // High threshold
@@ -219,17 +260,19 @@ class BountyFilteringServiceTest {
                 .status(BountyStatus.OPEN)
                 .build();
 
-        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
-        when(chatResponse.getResult()).thenReturn(chatResponse.getResult());
-        when(chatResponse.getResult().getOutput()).thenReturn(assistantMessage);
-        when(assistantMessage.getContent()).thenReturn("""
+        // Mock the result chain: chatResponse.getResult().getOutput() returns assistantMessage
+        // Note: This test checks that high time estimate overrides shouldProcess=true
+        // The LLM returns shouldProcess=true, but 120 minutes > 30 minute threshold, so it should be rejected
+        String jsonResponse = """
                 {
                   "shouldProcess": true,
                   "confidence": 0.8,
                   "estimatedTimeMinutes": 120,
                   "reason": "Fixable but time-consuming"
                 }
-                """);
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
 
         // When - with 30 minute max threshold
         FilterResult result = filteringService.shouldProcess(bounty, 0.5, 30);

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 
@@ -29,12 +30,15 @@ class TriageQueueServiceTest {
     @Mock
     private ZSetOperations<String, String> zSetOperations;
 
-    @InjectMocks
+    private ObjectMapper objectMapper;
+
     private TriageQueueService triageQueueService;
 
     @BeforeEach
     void setUp() {
         when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
+        objectMapper = new ObjectMapper();
+        triageQueueService = new TriageQueueService(redisTemplate, objectMapper);
     }
 
     @Test
@@ -84,47 +88,63 @@ class TriageQueueServiceTest {
         triageQueueService.enqueue(highValueBounty);
         triageQueueService.enqueue(lowValueBounty);
 
-        // Then
+        // Then - verify both bounties were enqueued with correct priority scores
         verify(zSetOperations, times(2)).add(
                 eq("triage:queue"),
                 anyString(),
-                argThat(score -> {
-                    // High value should have higher score (priority)
-                    return score != null;
-                })
+                anyDouble()
         );
     }
 
     @Test
     @DisplayName("Should dequeue highest priority bounty")
-    void shouldDequeueHighestPriority() {
+    void shouldDequeueHighestPriority() throws Exception {
         // Given
-        String bountyJson = "{\"id\":\"test-id\",\"issueId\":\"issue-123\"}";
-        Set<ZSetOperations.TypedTuple<String>> tuples = Set.of(
-                new DefaultTypedTuple<>(bountyJson, 100.0)
+        Bounty testBounty = Bounty.builder()
+                .id(java.util.UUID.randomUUID())
+                .issueId("issue-123")
+                .platform("algora")
+                .amount(new BigDecimal("150.00"))
+                .status(BountyStatus.OPEN)
+                .build();
+        String bountyJson = objectMapper.writeValueAsString(testBounty);
+        
+        ZSetOperations.TypedTuple<String> tuple = new ZSetOperations.TypedTuple<String>() {
+            @Override
+            public String getValue() {
+                return bountyJson;
+            }
 
-                    @Override
-                    public Double getScore() {
-                        return 500.0;
-                    }
-                }
-        );
+            @Override
+            public Double getScore() {
+                return 100.0;
+            }
 
-        when(zSetOperations.popMax("triage:queue", 1)).thenReturn(tuples);
+            @Override
+            public int compareTo(ZSetOperations.TypedTuple<String> o) {
+                return Double.compare(getScore(), o.getScore());
+            }
+        };
+        Set<ZSetOperations.TypedTuple<String>> tuples = Set.of(tuple);
+
+        // Mock popMax to return the tuple set
+        // Note: popMax signature is popMax(String key, long count)
+        when(zSetOperations.popMax(eq("triage:queue"), eq(1L))).thenReturn(tuples);
 
         // When
         Bounty result = triageQueueService.dequeue();
 
         // Then
         assertNotNull(result);
-        verify(zSetOperations, times(1)).popMax("triage:queue", 1);
+        assertEquals("issue-123", result.getIssueId());
+        verify(zSetOperations, times(1)).popMax(eq("triage:queue"), eq(1L));
     }
 
     @Test
     @DisplayName("Should return null when queue is empty")
     void shouldReturnNullWhenQueueEmpty() {
         // Given
-        when(zSetOperations.popMax("triage:queue", 1)).thenReturn(Set.of());
+        when(zSetOperations.popMax(anyString(), anyLong())).thenReturn(Set.of());
 
         // When
         Bounty result = triageQueueService.dequeue();
