@@ -104,6 +104,36 @@ mise tasks       # View all commands
    ./gradlew bootRun
    ```
 
+### Code Coverage
+
+Code coverage reports are automatically generated after each test run using JaCoCo.
+
+**Using Mise (Recommended):**
+```bash
+mise run test          # Run tests (automatically generates coverage)
+mise run coverage      # Generate coverage report manually
+mise run coverage-open # Open coverage report in browser
+mise run coverage-clean # Clean coverage reports
+```
+
+**Using Gradle directly:**
+```bash
+# After running tests, coverage reports are available at:
+# HTML: build/reports/jacoco/test/html/index.html
+# XML:  build/reports/jacoco/test/jacocoTestReport.xml
+
+# Generate coverage report manually:
+./gradlew jacocoTestReport
+
+# Reports are also saved with timestamps for historical tracking:
+# build/reports/jacoco-html-YYYY-MM-DD_HH-mm-ss/
+```
+
+**Coverage configuration:**
+- Excludes: Config classes, entities, DTOs, and application main class
+- Formats: HTML (interactive) and XML (for CI/CD integration)
+- Historical tracking: Timestamped reports saved for every test run
+
 ### Managing Services
 
 **Start services:**
@@ -154,7 +184,9 @@ If you have [mise](https://mise.jdx.dev/) installed:
 mise install          # Install tools and setup
 mise tasks            # View all available commands
 mise run setup        # Run setup
-mise run test         # Run tests
+mise run test         # Run tests (generates coverage automatically)
+mise run coverage      # Generate coverage report
+mise run coverage-open # Open coverage report in browser
 mise run run          # Run application
 ```
 

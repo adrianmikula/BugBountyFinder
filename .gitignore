@@ -30,6 +30,10 @@ repos/
 # Test
 .h2/
 
+# JaCoCo Code Coverage
+build/jacoco/
+!build/reports/jacoco/
+
 # Maven (legacy)
 target/
 pom.xml

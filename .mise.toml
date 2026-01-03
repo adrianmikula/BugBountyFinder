@@ -64,7 +64,7 @@ run_windows = "powershell -File scripts/gradle-build.ps1 -WithTests"
 run = "bash -c 'if [ -f gradlew ]; then ./gradlew build; else gradle build; fi'"
 
 [tasks.test]
-description = "Run all tests"
+description = "Run all tests (automatically generates code coverage report)"
 run_windows = "powershell -File scripts/gradle-test.ps1"
 run = "bash -c 'if [ -f gradlew ]; then ./gradlew test; else gradle test; fi'"
 
@@ -77,6 +77,21 @@ run = "bash -c 'if [ -f gradlew ]; then ./gradlew test --tests \"*Test\" --exclu
 description = "Run only component tests (requires Docker)"
 run_windows = "powershell -File scripts/gradle-test.ps1 -ComponentOnly"
 run = "bash -c 'if [ -f gradlew ]; then ./gradlew test --tests \"com.bugbounty.component.*\"; else gradle test --tests \"com.bugbounty.component.*\"; fi'"
+
+[tasks.coverage]
+description = "Generate code coverage report and open in browser (or print summary)"
+run_windows = "powershell -File scripts/gradle-coverage.ps1"
+run = "bash -c 'if [ -f gradlew ]; then ./gradlew jacocoTestReport jacocoCoverageSummary; else gradle jacocoTestReport jacocoCoverageSummary; fi; report_path=\"build/reports/jacoco/test/html/index.html\"; xml_path=\"build/reports/jacoco/test/jacocoTestReport.xml\"; if [ -f \"$report_path\" ]; then echo \"\"; echo \"=== Code Coverage Report ===\"; echo \"HTML Report: $(pwd)/$report_path\"; echo \"XML Report: $(pwd)/$xml_path\"; if [ -f \"$xml_path\" ] && command -v grep > /dev/null 2>&1 && command -v awk > /dev/null 2>&1; then echo \"\"; echo \"Coverage Summary:\"; instruction_line=$(grep \"type=\\\"INSTRUCTION\\\"\" \"$xml_path\" | head -1); if [ -n \"$instruction_line\" ]; then missed=$(echo \"$instruction_line\" | grep -oE \"missed=\\\"[0-9]+\\\"\" | grep -oE \"[0-9]+\"); covered=$(echo \"$instruction_line\" | grep -oE \"covered=\\\"[0-9]+\\\"\" | grep -oE \"[0-9]+\"); if [ -n \"$missed\" ] && [ -n \"$covered\" ] && [ \"$missed\" -ge 0 ] && [ \"$covered\" -ge 0 ]; then total=$((missed + covered)); if [ $total -gt 0 ]; then percentage=$(awk \"BEGIN {printf \\\"%.2f\\\", ($covered / $total) * 100}\"); echo \"  Instructions: $covered/$total ($percentage%)\"; echo \"  Covered: $covered\"; echo \"  Missed: $missed\"; fi; fi; fi; fi; echo \"\"; if command -v xdg-open > /dev/null 2>&1; then echo \"Opening in browser...\"; xdg-open \"$report_path\" 2>/dev/null; elif command -v open > /dev/null 2>&1; then echo \"Opening in browser...\"; open \"$report_path\" 2>/dev/null; else echo \"To view the report, open: $report_path\"; fi; else echo \"Coverage report not found. Run tests first.\"; fi'"
+
+[tasks.coverage-open]
+description = "Open code coverage HTML report in browser"
+run_windows = "powershell -c 'if (Test-Path \"build\\reports\\jacoco\\test\\html\\index.html\") { Start-Process \"build\\reports\\jacoco\\test\\html\\index.html\" } else { Write-Host \"Coverage report not found. Run 'mise run coverage' first.\" }'"
+run = "bash -c 'if [ -f build/reports/jacoco/test/html/index.html ]; then if command -v xdg-open > /dev/null; then xdg-open build/reports/jacoco/test/html/index.html; elif command -v open > /dev/null; then open build/reports/jacoco/test/html/index.html; else echo \"Coverage report: build/reports/jacoco/test/html/index.html\"; fi; else echo \"Coverage report not found. Run 'mise run coverage' first.\"; fi'"
+
+[tasks.coverage-clean]
+description = "Clean coverage reports and execution data"
+run_windows = "powershell -c 'if (Test-Path \"build\\reports\\jacoco\") { Remove-Item -Recurse -Force \"build\\reports\\jacoco\" }; if (Test-Path \"build\\jacoco\") { Remove-Item -Recurse -Force \"build\\jacoco\" }; Write-Host \"Coverage reports cleaned\"'"
+run = "bash -c 'rm -rf build/reports/jacoco build/jacoco && echo \"Coverage reports cleaned\"'"
 
 [tasks.run]
 description = "Run the application"
