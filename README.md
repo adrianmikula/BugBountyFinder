@@ -51,7 +51,7 @@ For detailed architecture documentation, see the [Architecture Documentation](do
 
 ### Coding Standards
 
-This project follows industry-standard best practices. See the [Coding Standards](docs/standards/adopt_in_the_future/README.md) for:
+This project follows industry-standard best practices. See the [Coding Standards](docs/standards/README.md) for:
 
 - **Core Principles**: TDD, DRY, KISS, SOLID
 - **Testing Standards**: Unit tests, component tests, coverage requirements
@@ -88,9 +88,11 @@ The setup script will:
 
 After setup, use mise commands for daily development:
 ```bash
-mise run test    # Run tests
-mise run run     # Run application
-mise tasks       # View all commands
+mise run test            # Run tests
+mise run run             # Run backend application
+mise run frontend-dev    # Start frontend development server
+mise run frontend-build  # Build frontend for production
+mise tasks               # View all commands
 ```
 
 ### Manual Setup
@@ -100,14 +102,18 @@ mise tasks       # View all commands
    docker compose up -d
    ```
 
-2. **Install Ollama and pull a model:**
+2. **Install Ollama and pull the recommended model:**
    ```bash
    # Linux/Mac
    curl -fsSL https://ollama.ai/install.sh | sh
    
    # Windows: Download from https://ollama.ai
    
-   ollama pull llama3.2:3b
+   # Pull DeepSeek Coder 6.7B (recommended for code review and bug fixing)
+   ollama pull deepseek-coder:6.7b
+   
+   # Alternative: For faster inference with lower accuracy, use:
+   # ollama pull deepseek-coder:1.3b
    ```
 
 3. **Initialize Gradle wrapper:**

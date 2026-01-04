@@ -233,11 +233,13 @@ when(domainObject.getSimpleProperty()).thenReturn("value");
 
 ### Minimum Coverage
 
-- **Overall**: 80% line coverage
+- **Overall**: 60% line coverage (target for MVP phase)
 - **Domain Models**: 100% coverage
-- **Services**: 90% coverage
-- **Controllers**: 80% coverage
+- **Services**: 70% coverage
+- **Controllers**: 60% coverage
 - **Mappers**: 100% coverage
+
+**Note**: The 60% target is set for the MVP phase. As the project matures, we aim to increase coverage to 80%+ for production readiness.
 
 ### Exclusions
 

@@ -41,6 +41,7 @@ mise install
 This will:
 - Install Java 21
 - Install Gradle 8.5
+- Install Node.js 20.11.0 (for frontend development)
 - Set up environment variables
 - Make tools available in your shell
 
@@ -79,6 +80,12 @@ mise run run
 
 # Build project
 mise run build
+
+# Frontend development
+mise run frontend-install  # Install frontend dependencies
+mise run frontend-dev      # Start frontend dev server
+mise run frontend-build    # Build frontend for production
+mise run frontend-preview  # Preview production build
 ```
 
 ### Direct Tool Access
@@ -88,6 +95,8 @@ Once mise is activated, tools are available directly:
 ```bash
 java -version    # Uses Java 21 from mise
 gradle --version # Uses Gradle 8.5 from mise
+node --version   # Uses Node.js 20.11.0 from mise
+npm --version    # Uses npm from mise
 ```
 
 ### Environment Variables
@@ -120,6 +129,11 @@ These are the high-value commands you'll use daily. For complete reference, see 
 | `db-connect` | Connect to PostgreSQL |
 | `redis-connect` | Connect to Redis |
 | `health` | Check app health |
+| `frontend-install` | Install frontend dependencies |
+| `frontend-dev` | Start frontend development server |
+| `frontend-build` | Build frontend for production |
+| `frontend-preview` | Preview production build locally |
+| `frontend-clean` | Clean frontend build artifacts |
 
 **View all tasks:**
 ```bash

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,7 +35,7 @@ public class BugFindingController {
         log.debug("Fetching bug findings that need human review");
         
         // Find bug findings that require human review and haven't been reviewed yet
-        List<BugFindingEntity> entities = bugFindingRepository
+        List<BugFindingEntity> reviewEntities = bugFindingRepository
                 .findByRequiresHumanReviewAndHumanReviewed(true, false);
         
         // Also find bug findings with low confidence (presence < 0.8 or fix < 0.8)
@@ -53,6 +54,7 @@ public class BugFindingController {
                 .collect(Collectors.toList());
         
         // Combine and deduplicate
+        List<BugFindingEntity> entities = new ArrayList<>(reviewEntities);
         entities.addAll(lowConfidenceEntities);
         List<BugFinding> findings = entities.stream()
                 .distinct()

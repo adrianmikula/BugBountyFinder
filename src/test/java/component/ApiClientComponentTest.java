@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * Component test for API clients.
  * Tests HTTP client integration with MockWebServer.
  */
-@Disabled("Requires Docker - initializationError when Docker is not available")
 @DisplayName("API Client Component Tests")
 class ApiClientComponentTest extends AbstractComponentTest {
 

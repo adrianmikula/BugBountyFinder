@@ -1,37 +1,17 @@
 package com.bugbounty.component;
 
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 /**
  * Test configuration for component tests using TestContainers.
- * This provides container-based testing similar to Arquillian but for Spring Boot.
+ * Containers are managed by AbstractComponentTest via @Container annotations.
+ * This configuration class is kept for any additional test-specific beans if needed.
  */
 @TestConfiguration
 @Profile("component-test")
 public class ComponentTestConfiguration {
-
-    @Bean(initMethod = "start", destroyMethod = "stop")
-    @Primary
-    public PostgreSQLContainer<?> postgresContainer() {
-        return new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
-                .withDatabaseName("bugbounty_test")
-                .withUsername("test")
-                .withPassword("test")
-                .withReuse(true);
-    }
-
-    @Bean(initMethod = "start", destroyMethod = "stop")
-    @Primary
-    public GenericContainer<?> redisContainer() {
-        return new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
-                .withExposedPorts(6379)
-                .withReuse(true);
-    }
+    // Containers are managed by AbstractComponentTest via @Container annotations
+    // No need to create bean definitions here as TestContainers JUnit extension handles them
 }
 

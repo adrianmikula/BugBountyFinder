@@ -35,7 +35,6 @@ import static org.mockito.Mockito.*;
  * Component test for BountyPollingService.
  * Tests the full integration of polling, filtering, and queueing.
  */
-@Disabled("Requires Docker - initializationError when Docker is not available")
 @DisplayName("Bounty Polling Component Tests")
 class BountyPollingComponentTest extends AbstractComponentTest {
 

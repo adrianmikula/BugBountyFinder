@@ -2,6 +2,7 @@ package com.bugbounty.cve.service;
 
 import com.bugbounty.cve.domain.BugFinding;
 import com.bugbounty.cve.domain.CVECatalog;
+import com.bugbounty.cve.entity.BugFindingEntity;
 import com.bugbounty.cve.entity.CodebaseIndexEntity;
 import com.bugbounty.cve.mapper.BugFindingMapper;
 import com.bugbounty.cve.repository.BugFindingRepository;
@@ -92,7 +93,7 @@ public class CommitAnalysisService {
         // Initial analysis: check if any CVEs are present in the commit
         return analyzeCommitForCVEs(repositoryUrl, commitId, commitDiff, affectedFiles, 
                 language, catalogEntries, codebaseIndex)
-                .flatMap(cveIds -> {
+                .flatMapMany(cveIds -> {
                     if (cveIds.isEmpty()) {
                         log.debug("No CVEs detected in commit {}", commitId);
                         return Flux.empty();
@@ -133,11 +134,12 @@ public class CommitAnalysisService {
                 String content = response.getResult().getOutput().getContent();
                 
                 // Parse response to get list of CVE IDs
-                return parseCVEListResponse(content);
+                List<String> cveIds = parseCVEListResponse(content);
+                return cveIds;
                 
             } catch (Exception e) {
                 log.error("Error in initial CVE analysis for commit {}", commitId, e);
-                return Collections.emptyList();
+                return Collections.<String>emptyList();
             }
         })
         .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
@@ -197,7 +199,8 @@ public class CommitAnalysisService {
             }
         })
         .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
-        .filter(Objects::nonNull);
+        .filter(Objects::nonNull)
+        .cast(BugFinding.class);
     }
     
     /**

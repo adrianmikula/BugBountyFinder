@@ -28,7 +28,6 @@ import static org.mockito.Mockito.lenient;
  * Component test for BountyFilteringService.
  * Tests LLM integration with mocked ChatClient.
  */
-@Disabled("Requires Docker - initializationError when Docker is not available")
 @DisplayName("Bounty Filtering Component Tests")
 class BountyFilteringComponentTest extends AbstractComponentTest {
 

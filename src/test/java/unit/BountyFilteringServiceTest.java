@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -48,6 +49,9 @@ class BountyFilteringServiceTest {
         // Use real ObjectMapper for JSON parsing
         objectMapper = new ObjectMapper();
         filteringService = new BountyFilteringService(chatClient, objectMapper);
+        
+        // Don't reset mocks here - let each test set up its own mocks
+        // This avoids issues with mock state between tests
     }
 
     /**
@@ -66,14 +70,15 @@ class BountyFilteringServiceTest {
             // Create a mock for the result with Answer to intercept method calls
             Object resultMock = mock(resultType, (org.mockito.stubbing.Answer<Object>) invocation -> {
                 java.lang.reflect.Method method = invocation.getMethod();
-                if ("getOutput".equals(method.getName())) {
+                String methodName = method.getName();
+                if ("getOutput".equals(methodName)) {
                     return assistantMessage;
                 }
                 // For other methods, return null (Mockito default)
                 return null;
             });
             
-            // Use lenient doReturn to set up getResult() to return our mock
+            // Set up getResult() to return our mock - use lenient doReturn for reliable stubbing
             lenient().doReturn(resultMock).when(chatResponse).getResult();
         } catch (Exception e) {
             throw new RuntimeException("Failed to mock ChatResponse result: " + e.getMessage(), e);
@@ -81,7 +86,6 @@ class BountyFilteringServiceTest {
     }
 
     @Test
-    @Disabled("Test is failing - needs investigation")
     @DisplayName("Should accept high-value, fixable bounty")
     void shouldAcceptHighValueFixableBounty() {
         // Given
@@ -119,7 +123,6 @@ class BountyFilteringServiceTest {
     }
 
     @Test
-    @Disabled("Test is failing - needs investigation")
     @DisplayName("Should reject low-value or complex bounty")
     void shouldRejectLowValueOrComplexBounty() {
         // Given
@@ -188,7 +191,6 @@ class BountyFilteringServiceTest {
     }
 
     @Test
-    @Disabled("Test is failing - needs investigation")
     @DisplayName("Should handle LLM errors gracefully")
     void shouldHandleLlmErrors() {
         // Given
@@ -287,7 +289,6 @@ class BountyFilteringServiceTest {
     }
 
     @Test
-    @Disabled("Test is failing - needs investigation")
     @DisplayName("Should handle JSON response with markdown code blocks")
     void shouldHandleJsonResponseWithMarkdownCodeBlocks() {
         // Given
@@ -325,7 +326,6 @@ class BountyFilteringServiceTest {
     }
 
     @Test
-    @Disabled("Test is failing - needs investigation")
     @DisplayName("Should handle JSON response with only opening code block")
     void shouldHandleJsonResponseWithOpeningCodeBlock() {
         // Given
@@ -361,7 +361,6 @@ class BountyFilteringServiceTest {
     }
 
     @Test
-    @Disabled("Test is failing - needs investigation")
     @DisplayName("Should handle JSON response without reason field")
     void shouldHandleJsonResponseWithoutReason() {
         // Given
@@ -396,7 +395,6 @@ class BountyFilteringServiceTest {
     }
 
     @Test
-    @Disabled("Test is failing - needs investigation")
     @DisplayName("Should handle buildPrompt with null fields")
     void shouldHandleBuildPromptWithNullFields() {
         // Given
@@ -414,8 +412,9 @@ class BountyFilteringServiceTest {
                   "reason": "Missing information"
                 }
                 """;
-        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        // Set up mocks - use lenient stubbing to avoid issues
         mockChatResponseResult(jsonResponse);
+        lenient().when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
 
         // When
         FilterResult result = filteringService.shouldProcess(bounty);
@@ -423,6 +422,7 @@ class BountyFilteringServiceTest {
         // Then
         assertNotNull(result);
         assertFalse(result.shouldProcess());
+        // The service should have called the chat client
         verify(chatClient, times(1)).call(any(Prompt.class));
     }
 

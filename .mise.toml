@@ -9,6 +9,9 @@ java = "21.0.0"
 # Gradle - Build tool
 gradle = "8.5"
 
+# Node.js - Required for frontend development
+node = "20.11.0"
+
 # Docker - For containerized services
 # Note: Docker version managed by system, not mise
 
@@ -29,7 +32,7 @@ REDIS_PORT = "6379"
 
 # Ollama Configuration
 OLLAMA_BASE_URL = "http://localhost:11434"
-OLLAMA_MODEL = "llama3.2:3b"
+OLLAMA_MODEL = "deepseek-coder:6.7b"
 
 # Repository Clone Path
 REPO_CLONE_PATH = "./repos"
@@ -122,4 +125,27 @@ run = "docker exec -it bugbounty-redis redis-cli"
 [tasks.health]
 description = "Check application health (requires app to be running)"
 run = "curl http://localhost:8080/actuator/health"
+
+# Frontend Development Tasks
+
+[tasks.frontend-install]
+description = "Install frontend dependencies"
+run = "cd frontend && npm install"
+
+[tasks.frontend-dev]
+description = "Start frontend development server (Vite)"
+run = "cd frontend && npm run dev"
+
+[tasks.frontend-build]
+description = "Build frontend for production"
+run = "cd frontend && npm run build"
+
+[tasks.frontend-preview]
+description = "Preview production build locally"
+run = "cd frontend && npm run preview"
+
+[tasks.frontend-clean]
+description = "Clean frontend build artifacts and node_modules"
+run_windows = "powershell -c 'if (Test-Path \"frontend\\node_modules\") { Remove-Item -Recurse -Force \"frontend\\node_modules\" }; if (Test-Path \"frontend\\dist\") { Remove-Item -Recurse -Force \"frontend\\dist\" }; Write-Host \"Frontend cleaned\"'"
+run = "bash -c 'rm -rf frontend/node_modules frontend/dist && echo \"Frontend cleaned\"'"
 

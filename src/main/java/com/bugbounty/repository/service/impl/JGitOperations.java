@@ -18,11 +18,13 @@ import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.util.io.NullOutputStream;
 import org.springframework.stereotype.Component;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.stream.Stream;
 
 @Component
@@ -109,7 +111,8 @@ public class JGitOperations implements GitOperations {
     public String getCommitDiff(String localPath, String commitId) throws IOException, GitAPIException {
         try (Git git = openRepository(localPath);
              RevWalk walk = new RevWalk(git.getRepository());
-             DiffFormatter diffFormatter = new DiffFormatter(NullOutputStream.INSTANCE)) {
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+             DiffFormatter diffFormatter = new DiffFormatter(outputStream)) {
             
             ObjectId commitObjectId = git.getRepository().resolve(commitId);
             if (commitObjectId == null) {
@@ -127,19 +130,15 @@ public class JGitOperations implements GitOperations {
             diffFormatter.setRepository(git.getRepository());
             diffFormatter.setDetectRenames(true);
             
-            StringBuilder diff = new StringBuilder();
-            
             if (parent != null) {
                 // Compare with parent
                 try (RevWalk revWalk = new RevWalk(git.getRepository())) {
                     RevTree parentTree = revWalk.parseTree(parent.getTree());
                     RevTree commitTree = revWalk.parseTree(commit.getTree());
                     
-                    diffFormatter.format(parentTree, commitTree);
-                    
-                    for (FileHeader fileHeader : diffFormatter.scan(parentTree, commitTree)) {
-                        diff.append(fileHeader.toString());
-                        diff.append("\n");
+                    List<org.eclipse.jgit.diff.DiffEntry> diffEntries = diffFormatter.scan(parentTree, commitTree);
+                    for (org.eclipse.jgit.diff.DiffEntry diffEntry : diffEntries) {
+                        diffFormatter.format(diffEntry);
                     }
                 }
             } else {
@@ -147,14 +146,15 @@ public class JGitOperations implements GitOperations {
                 try (RevWalk revWalk = new RevWalk(git.getRepository())) {
                     RevTree commitTree = revWalk.parseTree(commit.getTree());
                     
-                    for (FileHeader fileHeader : diffFormatter.scan(null, commitTree)) {
-                        diff.append(fileHeader.toString());
-                        diff.append("\n");
+                    List<org.eclipse.jgit.diff.DiffEntry> diffEntries = diffFormatter.scan(null, commitTree);
+                    for (org.eclipse.jgit.diff.DiffEntry diffEntry : diffEntries) {
+                        diffFormatter.format(diffEntry);
                     }
                 }
             }
             
-            return diff.toString();
+            diffFormatter.flush();
+            return outputStream.toString();
         }
     }
 }

@@ -19,7 +19,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * Component test for RepositoryService.
  * Tests Git operations in a real environment.
  */
-@Disabled("Requires Docker - initializationError when Docker is not available")
 @DisplayName("Repository Service Component Tests")
 class RepositoryServiceComponentTest extends AbstractComponentTest {
 

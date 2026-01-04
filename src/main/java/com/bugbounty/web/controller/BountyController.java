@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -37,9 +38,10 @@ public class BountyController {
         List<BountyEntity> claimedEntities = bountyRepository.findByStatus(BountyStatus.CLAIMED);
         List<BountyEntity> completedEntities = bountyRepository.findByStatus(BountyStatus.COMPLETED);
         
-        claimedEntities.addAll(completedEntities);
+        List<BountyEntity> allEntities = new ArrayList<>(claimedEntities);
+        allEntities.addAll(completedEntities);
         
-        List<Bounty> bounties = claimedEntities.stream()
+        List<Bounty> bounties = allEntities.stream()
                 .map(bountyMapper::toDomain)
                 .collect(Collectors.toList());
         

@@ -7,12 +7,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.ChatClient;
 import org.springframework.ai.chat.ChatResponse;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -37,8 +36,8 @@ public class BountyFilteringService {
         try {
             log.debug("Filtering bounty: {} - {}", bounty.getIssueId(), bounty.getTitle());
 
-            String prompt = buildPrompt(bounty);
-            Prompt aiPrompt = new PromptTemplate(prompt).create(Map.of());
+            String promptText = buildPrompt(bounty);
+            Prompt aiPrompt = new Prompt(new UserMessage(promptText));
 
             ChatResponse response = chatClient.call(aiPrompt);
             String content = response.getResult().getOutput().getContent();
@@ -91,12 +90,12 @@ public class BountyFilteringService {
                 5. Is it a simple bug fix vs. a complex refactoring?
                 
                 Respond with a JSON object:
-                {
+                {{
                   "shouldProcess": true/false,
                   "confidence": 0.0-1.0,
                   "estimatedTimeMinutes": number,
                   "reason": "brief explanation"
-                }
+                }}
                 """.replace("{issueId}", bounty.getIssueId())
                 .replace("{repositoryUrl}", bounty.getRepositoryUrl() != null ? bounty.getRepositoryUrl() : "N/A")
                 .replace("{platform}", bounty.getPlatform())

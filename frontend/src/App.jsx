@@ -27,15 +27,23 @@ function App() {
       setError(null)
 
       const [statsRes, bugFindingsRes, lowConfidenceRes, bountiesRes, prsRes] = await Promise.all([
-        fetch('/api/statistics'),
-        fetch('/api/bug-findings/needs-review'),
-        fetch('/api/bug-findings/low-confidence-fix'),
-        fetch('/api/bounties/claimed'),
-        fetch('/api/prs/history')
+        fetch('/api/statistics').catch(err => ({ error: err })),
+        fetch('/api/bug-findings/needs-review').catch(err => ({ error: err })),
+        fetch('/api/bug-findings/low-confidence-fix').catch(err => ({ error: err })),
+        fetch('/api/bounties/claimed').catch(err => ({ error: err })),
+        fetch('/api/prs/history').catch(err => ({ error: err }))
       ])
 
+      // Check for connection errors
+      const hasConnectionError = [statsRes, bugFindingsRes, lowConfidenceRes, bountiesRes, prsRes]
+        .some(res => res && res.error)
+      
+      if (hasConnectionError) {
+        throw new Error('Cannot connect to backend API. Please ensure the Spring Boot application is running on http://localhost:8080')
+      }
+
       if (!statsRes.ok || !bugFindingsRes.ok || !lowConfidenceRes.ok || !bountiesRes.ok || !prsRes.ok) {
-        throw new Error('Failed to fetch data')
+        throw new Error('Failed to fetch data from backend')
       }
 
       const [stats, bugFindingsData, lowConfidenceData, bountiesData, prsData] = await Promise.all([
@@ -52,7 +60,8 @@ function App() {
       setBounties(bountiesData)
       setPRs(prsData)
     } catch (err) {
-      setError(err.message)
+      const errorMessage = err.message || 'Unknown error occurred'
+      setError(errorMessage)
       console.error('Error fetching data:', err)
     } finally {
       setLoading(false)
@@ -76,7 +85,17 @@ function App() {
 
       {error && (
         <div className="error">
-          <strong>Error:</strong> {error}
+          <strong>Connection Error:</strong> {error}
+          <div style={{ marginTop: '10px', fontSize: '0.9rem' }}>
+            <p>To start the backend, run:</p>
+            <code style={{ display: 'block', padding: '10px', background: '#f0f0f0', borderRadius: '4px', marginTop: '5px' }}>
+              ./gradlew bootRun
+            </code>
+            <p style={{ marginTop: '10px' }}>Or on Windows:</p>
+            <code style={{ display: 'block', padding: '10px', background: '#f0f0f0', borderRadius: '4px', marginTop: '5px' }}>
+              .\scripts\gradle-run.ps1
+            </code>
+          </div>
         </div>
       )}
 

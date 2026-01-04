@@ -16,7 +16,7 @@ This document outlines the coding standards and best practices for the Bug Bount
 - ✅ Tests must fail for the right reason
 - ✅ Write minimal code to pass tests
 - ✅ Refactor only when tests are green
-- ✅ Maintain high test coverage (>80%)
+- ✅ Maintain test coverage (target: 60% for MVP, 80%+ for production)
 
 **Test Structure:**
 ```java
@@ -274,7 +274,8 @@ class BountyPollingServiceTest {
 ```
 
 ### Test Coverage
-- **Minimum**: 80% line coverage
+- **Minimum**: 60% line coverage (MVP target)
+- **Target**: 80%+ line coverage (production goal)
 - **Critical Paths**: 100% coverage
 - **Domain Models**: 100% coverage
 - **Exclusions**: Config classes, entities, DTOs, main class

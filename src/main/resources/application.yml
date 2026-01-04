@@ -38,13 +38,15 @@ spring:
       enabled: true
   
   # Spring AI - Ollama Configuration
+  # Using DeepSeek Coder 6.7B - optimized for code review and bug fixing
+  # Pull model with: ollama pull deepseek-coder:6.7b
   ai:
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       chat:
         options:
-          model: ${OLLAMA_MODEL:llama3.2:3b}
-          temperature: 0.7
+          model: ${OLLAMA_MODEL:deepseek-coder:6.7b}
+          temperature: 0.3  # Lower temperature for more deterministic code analysis
 
 # Actuator
 management:

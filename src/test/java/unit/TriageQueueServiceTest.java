@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -37,7 +38,9 @@ class TriageQueueServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
+        // Use lenient stubbing for all mocks to avoid unnecessary stubbing exceptions
+        lenient().when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
+        // Use real ObjectMapper for most tests - only mock it in specific exception tests
         objectMapper = new ObjectMapper();
         triageQueueService = new TriageQueueService(redisTemplate, objectMapper);
     }
@@ -98,7 +101,6 @@ class TriageQueueServiceTest {
     }
 
     @Test
-    @Disabled("Test is failing - needs investigation")
     @DisplayName("Should dequeue highest priority bounty")
     void shouldDequeueHighestPriority() throws Exception {
         // Given
@@ -131,15 +133,23 @@ class TriageQueueServiceTest {
 
         // Mock popMax to return the tuple set
         // Note: popMax signature is popMax(String key, long count)
-        when(zSetOperations.popMax(eq("triage:queue"), eq(1L))).thenReturn(tuples);
+        // Service passes int literal 1, which gets auto-widened to long at runtime
+        // Ensure redisTemplate.opsForZSet() returns our mock (override lenient from setUp)
+        when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
+        // Use anyLong() to match - int 1 auto-widens to long when passed to method expecting long
+        when(zSetOperations.popMax(eq("triage:queue"), anyLong())).thenReturn(tuples);
 
         // When
         Bounty result = triageQueueService.dequeue();
 
         // Then
-        assertNotNull(result);
+        // Verify mocks were called
+        verify(redisTemplate, times(1)).opsForZSet();
+        verify(zSetOperations, times(1)).popMax(eq("triage:queue"), anyLong());
+        
+        // Check the result
+        assertNotNull("Dequeue should return a bounty, but got null. Check if mock is matching or if exception occurred.", result);
         assertEquals("issue-123", result.getIssueId());
-        verify(zSetOperations, times(1)).popMax(eq("triage:queue"), eq(1L));
     }
 
     @Test
@@ -323,7 +333,6 @@ class TriageQueueServiceTest {
     }
 
     @Test
-    @Disabled("Test is failing - Mockito matcher issue")
     @DisplayName("Should handle enqueue exception gracefully")
     void shouldHandleEnqueueException() throws Exception {
         // Given
@@ -335,11 +344,17 @@ class TriageQueueServiceTest {
                 .status(BountyStatus.OPEN)
                 .build();
 
-        when(objectMapper.writeValueAsString(any())).thenThrow(new RuntimeException("Serialization error"));
+        // Create a mocked ObjectMapper for this test
+        ObjectMapper mockMapper = mock(ObjectMapper.class);
+        doThrow(new RuntimeException("Serialization error"))
+                .when(mockMapper).writeValueAsString(any(Bounty.class));
+        
+        // Create a new service instance with the mocked mapper
+        TriageQueueService testService = new TriageQueueService(redisTemplate, mockMapper);
 
-        // When & Then
+        // When & Then - service throws RuntimeException on enqueue error
         assertThrows(RuntimeException.class, () -> {
-            triageQueueService.enqueue(bounty);
+            testService.enqueue(bounty);
         });
     }
 
@@ -357,7 +372,6 @@ class TriageQueueServiceTest {
     }
 
     @Test
-    @Disabled("Test is failing - Mockito matcher issue")
     @DisplayName("Should handle remove exception gracefully")
     void shouldHandleRemoveException() throws Exception {
         // Given
@@ -366,10 +380,16 @@ class TriageQueueServiceTest {
                 .issueId("issue-123")
                 .build();
 
-        when(objectMapper.writeValueAsString(any())).thenThrow(new RuntimeException("Serialization error"));
+        // Create a mocked ObjectMapper for this test
+        ObjectMapper mockMapper = mock(ObjectMapper.class);
+        doThrow(new RuntimeException("Serialization error"))
+                .when(mockMapper).writeValueAsString(any(Bounty.class));
+        
+        // Create a new service instance with the mocked mapper
+        TriageQueueService testService = new TriageQueueService(redisTemplate, mockMapper);
 
-        // When
-        boolean removed = triageQueueService.remove(bounty);
+        // When - service catches exception and returns false
+        boolean removed = testService.remove(bounty);
 
         // Then
         assertFalse(removed);

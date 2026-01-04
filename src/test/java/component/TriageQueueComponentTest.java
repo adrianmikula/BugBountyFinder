@@ -18,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * Component test for TriageQueueService.
  * Tests Redis queue operations in a real container environment.
  */
-@Disabled("Requires Docker - initializationError when Docker is not available")
 @DisplayName("Triage Queue Component Tests")
 class TriageQueueComponentTest extends AbstractComponentTest {
 

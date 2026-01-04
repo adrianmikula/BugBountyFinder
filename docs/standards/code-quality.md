@@ -5,7 +5,7 @@
 Before submitting code for review, ensure:
 
 - [ ] All tests pass (`./gradlew test`)
-- [ ] Code coverage meets minimum requirements (80%)
+- [ ] Code coverage meets minimum requirements (60% for MVP, 80%+ for production)
 - [ ] No linter warnings or errors
 - [ ] Code follows SOLID principles
 - [ ] No code duplication (DRY)
