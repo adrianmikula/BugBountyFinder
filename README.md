@@ -57,6 +57,7 @@ This project follows industry-standard best practices. See the [Coding Standards
 - **Testing Standards**: Unit tests, component tests, coverage requirements
 - **Code Quality**: Code review checklist, design patterns, best practices
 - **Java 21 Features**: Modern language features and usage guidelines
+- **Common Gotchas**: [Common pitfalls and problems](docs/standards/common-gotchas.md) to avoid - includes Spring Boot test configuration, reactive programming pitfalls, and more
 
 ## Getting Started
 

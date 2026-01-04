@@ -7,8 +7,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -18,13 +18,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class AlgoraApiClientImpl implements AlgoraApiClient {
 
-    @org.springframework.beans.factory.annotation.Qualifier("algoraWebClient")
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+
+    public AlgoraApiClientImpl(
+            @Qualifier("algoraWebClient") WebClient webClient,
+            ObjectMapper objectMapper) {
+        this.webClient = webClient;
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     @CircuitBreaker(name = "algoraApi", fallbackMethod = "fetchBountiesFallback")

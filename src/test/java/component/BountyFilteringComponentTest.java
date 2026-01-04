@@ -34,6 +34,8 @@ class BountyFilteringComponentTest extends AbstractComponentTest {
     @Autowired
     private BountyFilteringService filteringService;
 
+    // Note: ChatClient is provided as a default mock by ComponentTestConfiguration
+    // We override it here with @MockBean to set up specific behavior for this test
     @MockBean
     private ChatClient chatClient;
 

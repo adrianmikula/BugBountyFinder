@@ -15,7 +15,15 @@ import org.testcontainers.utility.DockerImageName;
  * Provides shared container setup for PostgreSQL and Redis.
  * All component tests extend this class to get containerized test environment.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = {
+        // Ensure context caching works properly
+        "spring.test.context.cache.maxSize=32",
+        // Disable scheduling in tests
+        "spring.task.scheduling.enabled=false"
+    }
+)
 @Testcontainers
 @ActiveProfiles("component-test")
 @Import(ComponentTestConfiguration.class)
@@ -27,13 +35,13 @@ public abstract class AbstractComponentTest {
             .withDatabaseName("bugbounty_test")
             .withUsername("test")
             .withPassword("test")
-            .withReuse(true);
+            .withReuse(false);  // Disable reuse to ensure clean state for each test run
 
     @Container
     static GenericContainer<?> redis = new GenericContainer<>(
             DockerImageName.parse("redis:7-alpine"))
             .withExposedPorts(6379)
-            .withReuse(true);
+            .withReuse(false);  // Disable reuse to ensure clean state for each test run
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {

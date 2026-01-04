@@ -12,12 +12,17 @@ spring:
   # JPA Configuration
   jpa:
     hibernate:
-      ddl-auto: create-drop
-    show-sql: true
+      ddl-auto: create-drop  # Use Hibernate for schema creation in tests (faster than Liquibase)
+    show-sql: false  # Set to false to reduce noise, enable when debugging
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+  
+  # Liquibase Configuration - DISABLED for component tests
+  # We use Hibernate ddl-auto instead for faster test execution
+  liquibase:
+    enabled: false
   
   # Redis Configuration (will be overridden by TestContainers)
   data:
@@ -30,16 +35,16 @@ spring:
   threads:
     virtual:
       enabled: true
-
-# Spring AI - Mock Ollama (will be mocked in tests)
-spring:
+  
+  # Disable scheduled tasks in tests to prevent interference
+  task:
+    scheduling:
+      enabled: false
+  
+  # Spring AI - Disabled for component tests (tests should mock ChatClient if needed)
   ai:
     ollama:
-      base-url: http://localhost:11434
-      chat:
-        options:
-          model: llama3.2:3b
-          temperature: 0.7
+      enabled: false  # Disable to prevent connection attempts during tests
 
 # Application Configuration
 app:

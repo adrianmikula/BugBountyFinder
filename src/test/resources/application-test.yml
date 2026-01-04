@@ -15,14 +15,12 @@ spring:
   threads:
     virtual:
       enabled: true
-
-spring:
   ai:
     ollama:
       base-url: http://localhost:11434
       chat:
         options:
-          model: llama3.2:3b
+          model: deepseek-coder:6.7b
 
 app:
   bounty:

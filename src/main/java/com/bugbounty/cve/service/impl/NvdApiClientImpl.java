@@ -121,28 +121,22 @@ public class NvdApiClientImpl implements NvdApiClient {
             int startIndex = 0;
             int resultsPerPage = 2000; // NVD max is 2000
             
+            // Use generate to emit page indices, then flatMap to fetch and parse each page
             return Flux.generate(
                     () -> startIndex,
                     (currentIndex, sink) -> {
                         try {
                             String response = fetchCVEPage(currentIndex, resultsPerPage, startDate, endDate, severity);
                             JsonNode root = objectMapper.readTree(response);
-                            
                             int totalResults = root.path("totalResults").asInt(0);
-                            JsonNode vulnerabilities = root.path("vulnerabilities");
                             
-                            if (vulnerabilities.isArray() && vulnerabilities.size() > 0) {
-                                for (JsonNode vuln : vulnerabilities) {
-                                    CVE cve = parseCVEFromNode(vuln);
-                                    if (cve != null) {
-                                        sink.next(cve);
-                                    }
-                                }
-                            }
+                            // Emit the current page data as a single element
+                            sink.next(new PageData(currentIndex, response, totalResults));
                             
                             int nextIndex = currentIndex + resultsPerPage;
                             if (nextIndex >= totalResults) {
                                 sink.complete();
+                                return currentIndex; // Return value doesn't matter after complete
                             } else {
                                 // Rate limiting: NVD allows 5 requests per 30 seconds
                                 try {
@@ -150,17 +144,55 @@ public class NvdApiClientImpl implements NvdApiClient {
                                 } catch (InterruptedException e) {
                                     Thread.currentThread().interrupt();
                                     sink.complete();
+                                    return currentIndex;
                                 }
                                 return nextIndex;
                             }
                         } catch (Exception e) {
                             log.error("Error fetching CVE page at index {}", currentIndex, e);
                             sink.error(e);
+                            return currentIndex;
                         }
-                        return currentIndex;
                     }
-            );
+            )
+            .flatMap(pageData -> {
+                // Parse and emit all CVEs from this page
+                try {
+                    JsonNode root = objectMapper.readTree(pageData.response);
+                    JsonNode vulnerabilities = root.path("vulnerabilities");
+                    
+                    if (!vulnerabilities.isArray() || vulnerabilities.size() == 0) {
+                        return Flux.empty();
+                    }
+                    
+                    List<CVE> cves = new ArrayList<>();
+                    for (JsonNode vuln : vulnerabilities) {
+                        CVE cve = parseCVEFromNode(vuln);
+                        if (cve != null) {
+                            cves.add(cve);
+                        }
+                    }
+                    
+                    return Flux.fromIterable(cves);
+                } catch (Exception e) {
+                    log.error("Error parsing CVE page at index {}", pageData.index, e);
+                    return Flux.empty();
+                }
+            });
         });
+    }
+    
+    // Helper class to hold page data
+    private static class PageData {
+        final int index;
+        final String response;
+        final int totalResults;
+        
+        PageData(int index, String response, int totalResults) {
+            this.index = index;
+            this.response = response;
+            this.totalResults = totalResults;
+        }
     }
     
     private String fetchCVEPage(int startIndex, int resultsPerPage, String startDate, String endDate, String severity) {
