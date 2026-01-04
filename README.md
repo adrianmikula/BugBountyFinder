@@ -38,6 +38,26 @@ src/
     └── java/com/bugbounty/  # Unit tests (TDD)
 ```
 
+## Documentation
+
+### Architecture
+
+For detailed architecture documentation, see the [Architecture Documentation](docs/architecture/README.md) which covers:
+
+- **Architectural Patterns**: Reactive programming, DDD, circuit breakers, event-driven architecture
+- **Data Flows**: Bounty discovery, webhook processing, CVE monitoring pipelines
+- **System Integrations**: External APIs, LLM integration, database patterns
+- **Component Architecture**: Domain layers, services, and component interactions
+
+### Coding Standards
+
+This project follows industry-standard best practices. See the [Coding Standards](docs/standards/adopt_in_the_future/README.md) for:
+
+- **Core Principles**: TDD, DRY, KISS, SOLID
+- **Testing Standards**: Unit tests, component tests, coverage requirements
+- **Code Quality**: Code review checklist, design patterns, best practices
+- **Java 21 Features**: Modern language features and usage guidelines
+
 ## Getting Started
 
 ### Prerequisites

@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <!-- Create repositories table -->
+    <changeSet id="001-create-repositories-table" author="liquibase">
+        <createTable tableName="repositories">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="url" type="VARCHAR(500)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="owner" type="VARCHAR(255)"/>
+            <column name="name" type="VARCHAR(255)"/>
+            <column name="default_branch" type="VARCHAR(255)"/>
+            <column name="language" type="VARCHAR(100)"/>
+            <column name="local_path" type="VARCHAR(1000)"/>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP"/>
+        </createTable>
+        
+        <createIndex indexName="idx_url" tableName="repositories">
+            <column name="url"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_language" tableName="repositories">
+            <column name="language"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Create bounties table -->
+    <changeSet id="002-create-bounties-table" author="liquibase">
+        <createTable tableName="bounties">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="issue_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="repository_url" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="platform" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="DECIMAL(19, 2)"/>
+            <column name="currency" type="VARCHAR(10)"/>
+            <column name="title" type="VARCHAR(500)"/>
+            <column name="description" type="TEXT"/>
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="started_at" type="TIMESTAMP"/>
+            <column name="completed_at" type="TIMESTAMP"/>
+            <column name="failed_at" type="TIMESTAMP"/>
+            <column name="pull_request_id" type="VARCHAR(255)"/>
+            <column name="failure_reason" type="TEXT"/>
+        </createTable>
+        
+        <createIndex indexName="idx_issue_platform" tableName="bounties">
+            <column name="issue_id"/>
+            <column name="platform"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_status" tableName="bounties">
+            <column name="status"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_platform_status" tableName="bounties">
+            <column name="platform"/>
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Create cves table -->
+    <changeSet id="003-create-cves-table" author="liquibase">
+        <createTable tableName="cves">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="cve_id" type="VARCHAR(50)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="description" type="TEXT"/>
+            <column name="severity" type="VARCHAR(20)"/>
+            <column name="cvss_score" type="DOUBLE PRECISION"/>
+            <column name="published_date" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_modified_date" type="TIMESTAMP"/>
+            <column name="affected_languages" type="TEXT"/>
+            <column name="affected_products" type="TEXT"/>
+            <column name="source" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        
+        <createIndex indexName="idx_cve_id" tableName="cves" unique="true">
+            <column name="cve_id"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_severity" tableName="cves">
+            <column name="severity"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_published_date" tableName="cves">
+            <column name="published_date"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
+

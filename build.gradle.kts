@@ -61,6 +61,7 @@ dependencies {
 
     // Database
     runtimeOnly("org.postgresql:postgresql")
+    implementation("org.liquibase:liquibase-core")
 
     // Git Operations
     implementation("org.eclipse.jgit:org.eclipse.jgit:${property("jgitVersion")}")
