@@ -118,5 +118,149 @@ class RepositoryTest {
         // Then
         assertEquals("owner/repo", repository.getFullPath());
     }
+
+    @Test
+    @DisplayName("Should return null for full path when owner is null")
+    void shouldReturnNullForFullPathWhenOwnerIsNull() {
+        // Given
+        Repository repository = Repository.builder()
+                .name("repo")
+                .build();
+
+        // Then
+        assertNull(repository.getFullPath());
+    }
+
+    @Test
+    @DisplayName("Should return null for full path when name is null")
+    void shouldReturnNullForFullPathWhenNameIsNull() {
+        // Given
+        Repository repository = Repository.builder()
+                .owner("owner")
+                .build();
+
+        // Then
+        assertNull(repository.getFullPath());
+    }
+
+    @Test
+    @DisplayName("Should extract owner and name from URL when not explicitly set")
+    void shouldExtractOwnerAndNameFromUrlWhenNotSet() {
+        // Given
+        Repository repository = Repository.builder()
+                .url("https://github.com/test-owner/test-repo")
+                .build();
+
+        // When
+        String owner = repository.getOwner();
+        String name = repository.getName();
+
+        // Then
+        assertEquals("test-owner", owner);
+        assertEquals("test-repo", name);
+    }
+
+    @Test
+    @DisplayName("Should return null owner when URL is null")
+    void shouldReturnNullOwnerWhenUrlIsNull() {
+        // Given
+        Repository repository = Repository.builder()
+                .url(null)
+                .build();
+
+        // Then
+        assertNull(repository.getOwner());
+    }
+
+    @Test
+    @DisplayName("Should return null name when URL is null")
+    void shouldReturnNullNameWhenUrlIsNull() {
+        // Given
+        Repository repository = Repository.builder()
+                .url(null)
+                .build();
+
+        // Then
+        assertNull(repository.getName());
+    }
+
+    @Test
+    @DisplayName("Should return false when local path is null")
+    void shouldReturnFalseWhenLocalPathIsNull() {
+        // Given
+        Repository repository = Repository.builder()
+                .url("https://github.com/owner/repo")
+                .localPath(null)
+                .build();
+
+        // Then
+        assertFalse(repository.isCloned());
+    }
+
+    @Test
+    @DisplayName("Should return false when local path is empty")
+    void shouldReturnFalseWhenLocalPathIsEmpty() {
+        // Given
+        Repository repository = Repository.builder()
+                .url("https://github.com/owner/repo")
+                .localPath("")
+                .build();
+
+        // Then
+        assertFalse(repository.isCloned());
+    }
+
+    @Test
+    @DisplayName("Should handle URL with trailing slash")
+    void shouldHandleUrlWithTrailingSlash() {
+        // Given
+        Repository repository = Repository.builder()
+                .url("https://github.com/owner/repo/")
+                .build();
+
+        // Then
+        assertEquals("owner", repository.getOwner());
+        assertEquals("repo", repository.getName());
+    }
+
+    @Test
+    @DisplayName("Should handle URL with .git extension")
+    void shouldHandleUrlWithGitExtension() {
+        // Given
+        Repository repository = Repository.builder()
+                .url("https://github.com/owner/repo.git")
+                .build();
+
+        // Then
+        assertEquals("owner", repository.getOwner());
+        assertEquals("repo", repository.getName());
+    }
+
+    @Test
+    @DisplayName("Should use explicitly set owner and name instead of extracting from URL")
+    void shouldUseExplicitlySetOwnerAndName() {
+        // Given
+        Repository repository = Repository.builder()
+                .url("https://github.com/wrong-owner/wrong-repo")
+                .owner("correct-owner")
+                .name("correct-repo")
+                .build();
+
+        // Then
+        assertEquals("correct-owner", repository.getOwner());
+        assertEquals("correct-repo", repository.getName());
+    }
+
+    @Test
+    @DisplayName("Should generate UUID when id is not provided")
+    void shouldGenerateUuidWhenIdNotProvided() {
+        // When
+        Repository repository = Repository.builder()
+                .url("https://github.com/owner/repo")
+                .build();
+
+        // Then
+        assertNotNull(repository.getId());
+    }
 }
 

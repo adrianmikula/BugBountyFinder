@@ -186,5 +186,130 @@ class BountyTest {
         assertTrue(highValueBounty.meetsMinimumAmount(minimumAmount));
         assertFalse(lowValueBounty.meetsMinimumAmount(minimumAmount));
     }
+
+    @Test
+    @DisplayName("Should return false when amount is null for minimum amount check")
+    void shouldReturnFalseWhenAmountIsNull() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-123")
+                .platform("algora")
+                .status(BountyStatus.OPEN)
+                .amount(null)
+                .build();
+
+        // Then
+        assertFalse(bounty.meetsMinimumAmount(new BigDecimal("50.00")));
+    }
+
+    @Test
+    @DisplayName("Should return false when minimum amount is null")
+    void shouldReturnFalseWhenMinimumAmountIsNull() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-123")
+                .platform("algora")
+                .status(BountyStatus.OPEN)
+                .amount(new BigDecimal("100.00"))
+                .build();
+
+        // Then
+        assertFalse(bounty.meetsMinimumAmount(null));
+    }
+
+    @Test
+    @DisplayName("Should return true when amount equals minimum amount")
+    void shouldReturnTrueWhenAmountEqualsMinimum() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-123")
+                .platform("algora")
+                .status(BountyStatus.OPEN)
+                .amount(new BigDecimal("50.00"))
+                .build();
+
+        // Then
+        assertTrue(bounty.meetsMinimumAmount(new BigDecimal("50.00")));
+    }
+
+    @Test
+    @DisplayName("Should not be eligible when status is COMPLETED")
+    void shouldNotBeEligibleWhenCompleted() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-123")
+                .platform("algora")
+                .status(BountyStatus.COMPLETED)
+                .build();
+
+        // Then
+        assertFalse(bounty.isEligibleForProcessing());
+    }
+
+    @Test
+    @DisplayName("Should not be eligible when status is FAILED")
+    void shouldNotBeEligibleWhenFailed() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-123")
+                .platform("algora")
+                .status(BountyStatus.FAILED)
+                .build();
+
+        // Then
+        assertFalse(bounty.isEligibleForProcessing());
+    }
+
+    @Test
+    @DisplayName("Should generate UUID when id is not provided")
+    void shouldGenerateUuidWhenIdNotProvided() {
+        // When
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-123")
+                .platform("algora")
+                .status(BountyStatus.OPEN)
+                .build();
+
+        // Then
+        assertNotNull(bounty.getId());
+    }
+
+    @Test
+    @DisplayName("Should handle markCompleted with null pull request ID")
+    void shouldHandleMarkCompletedWithNullPullRequestId() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-123")
+                .platform("algora")
+                .status(BountyStatus.IN_PROGRESS)
+                .build();
+
+        // When
+        bounty.markCompleted(null);
+
+        // Then
+        assertEquals(BountyStatus.COMPLETED, bounty.getStatus());
+        assertNull(bounty.getPullRequestId());
+        assertNotNull(bounty.getCompletedAt());
+    }
+
+    @Test
+    @DisplayName("Should handle markFailed with null reason")
+    void shouldHandleMarkFailedWithNullReason() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-123")
+                .platform("algora")
+                .status(BountyStatus.IN_PROGRESS)
+                .build();
+
+        // When
+        bounty.markFailed(null);
+
+        // Then
+        assertEquals(BountyStatus.FAILED, bounty.getStatus());
+        assertNull(bounty.getFailureReason());
+        assertNotNull(bounty.getFailedAt());
+    }
 }
 

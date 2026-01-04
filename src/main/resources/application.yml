@@ -30,9 +30,8 @@ spring:
   threads:
     virtual:
       enabled: true
-
-# Spring AI - Ollama Configuration
-spring:
+  
+  # Spring AI - Ollama Configuration
   ai:
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
@@ -79,6 +78,20 @@ app:
       max-retries: 3
       min-confidence: 0.6
       max-time-minutes: 60
+  webhooks:
+    github:
+      enabled: true
+      secret: ${GITHUB_WEBHOOK_SECRET:}
+      verify-signature: true
+  cve:
+    monitoring:
+      enabled: true
+      poll-interval-ms: 3600000  # 1 hour
+      min-severity: HIGH  # CRITICAL, HIGH, MEDIUM, LOW
+    nvd:
+      api-base-url: https://services.nvd.nist.gov/rest/json
+      api-key: ${NVD_API_KEY:}  # Optional: Get free API key from https://nvd.nist.gov/developers/request-an-api-key
+      rate-limit-delay-ms: 6000  # NVD allows 5 requests per 30 seconds (6 seconds between requests)
 
 # Resilience4j Configuration
 resilience4j:

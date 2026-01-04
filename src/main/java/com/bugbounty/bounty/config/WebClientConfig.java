@@ -33,5 +33,10 @@ public class WebClientConfig {
                 .baseUrl(polarApiUrl)
                 .build();
     }
+    
+    @Bean("nvdWebClientBuilder")
+    public WebClient.Builder nvdWebClientBuilder() {
+        return WebClient.builder();
+    }
 }
 

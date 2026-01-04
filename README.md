@@ -5,6 +5,7 @@ Automated bug bounty and PR bounty hunting system built with Spring Boot 3.x.
 ## Features
 
 - **Bounty Polling**: Automatically polls Algora and Polar.sh for new bounties
+- **GitHub Webhooks**: Real-time notifications when commits are pushed to repositories
 - **Repository Management**: Clones and manages GitHub repositories
 - **LLM Integration**: Uses Ollama for local LLM inference (cost-effective)
 - **Virtual Threads**: High concurrency with Project Loom
