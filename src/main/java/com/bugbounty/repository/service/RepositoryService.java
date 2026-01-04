@@ -67,5 +67,13 @@ public class RepositoryService {
 
         return gitOperations.listFiles(repository.getLocalPath(), directoryPath);
     }
+
+    public String getCommitDiff(Repository repository, String commitId) throws Exception {
+        if (!repository.isCloned()) {
+            throw new IllegalStateException("Repository not cloned: " + repository.getUrl());
+        }
+
+        return gitOperations.getCommitDiff(repository.getLocalPath(), commitId);
+    }
 }
 

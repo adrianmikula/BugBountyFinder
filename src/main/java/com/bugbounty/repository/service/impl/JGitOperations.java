@@ -5,8 +5,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.PullResult;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.diff.DiffFormatter;
+import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.patch.FileHeader;
+import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevTree;
+import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
+import org.eclipse.jgit.treewalk.AbstractTreeIterator;
+import org.eclipse.jgit.treewalk.CanonicalTreeParser;
+import org.eclipse.jgit.util.io.NullOutputStream;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
@@ -93,6 +102,59 @@ public class JGitOperations implements GitOperations {
                     .filter(Files::isRegularFile)
                     .map(path -> fullPath.relativize(path).toString())
                     .toArray(String[]::new);
+        }
+    }
+
+    @Override
+    public String getCommitDiff(String localPath, String commitId) throws IOException, GitAPIException {
+        try (Git git = openRepository(localPath);
+             RevWalk walk = new RevWalk(git.getRepository());
+             DiffFormatter diffFormatter = new DiffFormatter(NullOutputStream.INSTANCE)) {
+            
+            ObjectId commitObjectId = git.getRepository().resolve(commitId);
+            if (commitObjectId == null) {
+                throw new IllegalArgumentException("Commit not found: " + commitId);
+            }
+            
+            RevCommit commit = walk.parseCommit(commitObjectId);
+            
+            // Get parent commit if it exists
+            RevCommit parent = null;
+            if (commit.getParentCount() > 0) {
+                parent = walk.parseCommit(commit.getParent(0));
+            }
+            
+            diffFormatter.setRepository(git.getRepository());
+            diffFormatter.setDetectRenames(true);
+            
+            StringBuilder diff = new StringBuilder();
+            
+            if (parent != null) {
+                // Compare with parent
+                try (RevWalk revWalk = new RevWalk(git.getRepository())) {
+                    RevTree parentTree = revWalk.parseTree(parent.getTree());
+                    RevTree commitTree = revWalk.parseTree(commit.getTree());
+                    
+                    diffFormatter.format(parentTree, commitTree);
+                    
+                    for (FileHeader fileHeader : diffFormatter.scan(parentTree, commitTree)) {
+                        diff.append(fileHeader.toString());
+                        diff.append("\n");
+                    }
+                }
+            } else {
+                // Initial commit - show all files
+                try (RevWalk revWalk = new RevWalk(git.getRepository())) {
+                    RevTree commitTree = revWalk.parseTree(commit.getTree());
+                    
+                    for (FileHeader fileHeader : diffFormatter.scan(null, commitTree)) {
+                        diff.append(fileHeader.toString());
+                        diff.append("\n");
+                    }
+                }
+            }
+            
+            return diff.toString();
         }
     }
 }

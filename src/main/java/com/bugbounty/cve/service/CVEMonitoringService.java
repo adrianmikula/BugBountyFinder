@@ -31,6 +31,7 @@ public class CVEMonitoringService {
     private final LanguageMappingService languageMappingService;
     private final RepositoryScanningService repositoryScanningService;
     private final RepositoryRepository repositoryRepository;
+    private final CVECatalogService cveCatalogService;
     
     /**
      * Poll NVD API for new CVEs and process them.
@@ -83,6 +84,13 @@ public class CVEMonitoringService {
             }
             
             log.info("CVE {} affects languages: {}", cve.getCveId(), affectedLanguages);
+            
+            // Create CVE catalog entries for each language
+            cveCatalogService.processCVEForCatalog(cve)
+                    .doOnNext(catalog -> log.info("Created catalog entry for CVE {} in language {}", 
+                            catalog.getCveId(), catalog.getLanguage()))
+                    .doOnError(error -> log.error("Error creating catalog entries for CVE {}", cve.getCveId(), error))
+                    .subscribe();
             
             // Find repositories using affected languages
             List<RepositoryEntity> repositories = repositoryRepository.findAll();

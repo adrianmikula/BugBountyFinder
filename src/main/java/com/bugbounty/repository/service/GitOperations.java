@@ -12,5 +12,6 @@ public interface GitOperations {
     PullResult pull(Git git) throws GitAPIException;
     String readFile(String localPath, String filePath) throws IOException;
     String[] listFiles(String localPath, String directoryPath) throws IOException;
+    String getCommitDiff(String localPath, String commitId) throws IOException, GitAPIException;
 }
 
