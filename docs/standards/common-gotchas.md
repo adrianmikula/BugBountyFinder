@@ -629,6 +629,75 @@ static void configureProperties(DynamicPropertyRegistry registry) {
 }
 ```
 
+### ❌ Missing HikariCP Configuration in Tests (CRITICAL: Causes Test Hangs)
+
+**Problem**: Default HikariCP settings (30s connection timeout, long maxLifetime) cause tests to hang when containers are slow to start or connections fail.
+
+```yaml
+# ❌ BAD: No HikariCP configuration - defaults cause hangs
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/test
+```
+
+**Solution**: Configure HikariCP with shorter timeouts for tests to fail fast.
+
+```yaml
+# ✅ GOOD: HikariCP configured for tests
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/test
+    hikari:
+      connection-timeout: 5000  # 5 seconds instead of 30s
+      maximum-pool-size: 5  # Smaller pool for tests
+      minimum-idle: 1
+      max-lifetime: 30000  # 30 seconds
+      idle-timeout: 10000  # 10 seconds
+      leak-detection-threshold: 5000  # Detect leaks quickly
+```
+
+Or in `@SpringBootTest` properties:
+
+```java
+@SpringBootTest(properties = {
+    "spring.datasource.hikari.connection-timeout=5000",
+    "spring.datasource.hikari.maximum-pool-size=5",
+    "spring.datasource.hikari.max-lifetime=30000"
+})
+```
+
+**Impact**: Missing HikariCP configuration causes:
+- Tests hanging for 30+ seconds on connection failures
+- Multiple connection pools being created (HikariPool-1, HikariPool-2, etc.)
+- Connection validation failures
+- Test suite timeouts
+
+### ❌ Missing Container Wait Strategies
+
+**Problem**: TestContainers might not wait for containers to be fully ready before tests start, causing connection failures.
+
+```java
+// ❌ BAD: No wait strategy
+@Container
+static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
+```
+
+**Solution**: Always add wait strategies to ensure containers are ready.
+
+```java
+// ✅ GOOD: Wait for container to be ready
+@Container
+static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(
+        DockerImageName.parse("postgres:15-alpine"))
+        .waitingFor(Wait.forListeningPort())
+        .withStartupTimeout(Duration.ofSeconds(30));
+```
+
+**Impact**: Missing wait strategies cause:
+- Connection refused errors
+- Tests failing intermittently
+- Race conditions between container startup and test execution
+
 ---
 
 ## Java 21 Specific Issues

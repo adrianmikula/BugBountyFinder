@@ -99,8 +99,12 @@ public class GitHubWebhookService {
                 analyzeCommitsForCVEs(repository, pushEvent);
                 
                 pushEvent.getCommits().forEach(commit -> {
+                    String commitId = commit.getId();
+                    String shortId = (commitId != null && commitId.length() > 0) 
+                            ? commitId.substring(0, Math.min(7, commitId.length()))
+                            : "unknown";
                     log.debug("Commit: {} - {} (added: {}, modified: {}, removed: {})",
-                            commit.getId().substring(0, Math.min(7, commit.getId().length())),
+                            shortId,
                             commit.getMessage(),
                             commit.getAdded() != null ? commit.getAdded().size() : 0,
                             commit.getModified() != null ? commit.getModified().size() : 0,

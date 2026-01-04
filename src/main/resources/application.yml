@@ -49,14 +49,22 @@ spring:
           temperature: 0.3  # Lower temperature for more deterministic code analysis
 
 # Actuator
+# Enhanced configuration for MCP server integration
+# See docs/setup/MCP_SERVERS_SETUP.md for MCP server setup
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics,prometheus,loggers,logfile,env
   endpoint:
     health:
       show-details: always
+    loggers:
+      enabled: true
+    logfile:
+      enabled: true
+      # Log file path for logfile endpoint
+      external-file: ./logs/application.log
 
 # Application Configuration
 app:
@@ -68,12 +76,15 @@ app:
     platforms:
       algora:
         api-url: https://api.algora.io/v1
+        api-key: ${ALGORA_API_KEY:}  # Optional: API key for Algora authentication
         rate-limit-per-minute: 60
       polar:
         api-url: https://api.polar.sh
+        api-key: ${POLAR_API_KEY:}  # Optional: API key for Polar.sh authentication
         rate-limit-per-minute: 60
       github:
         api-url: https://api.github.com
+        api-token: ${GITHUB_API_TOKEN:}  # Optional: GitHub Personal Access Token for higher rate limits
         rate-limit-per-hour: 5000
   repository:
     clone:
@@ -133,6 +144,7 @@ resilience4j:
         timeoutDuration: 5s
 
 # Logging
+# Configured for MCP server integration - logs written to file for Actuator logfile endpoint
 logging:
   level:
     root: INFO
@@ -141,3 +153,7 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ./logs/application.log
+    max-size: 10MB
+    max-history: 30

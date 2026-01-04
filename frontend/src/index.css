@@ -1,4 +1,4 @@
-* {
+mo* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -196,5 +196,61 @@ code {
   margin-top: 10px;
   max-height: 200px;
   overflow-y: auto;
+}
+
+.tooltip {
+  background-color: #333;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  line-height: 1.5;
+}
+
+.tooltip-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 6px;
+}
+
+.tooltip-content {
+  margin-top: 8px;
+}
+
+.tooltip-item {
+  margin: 4px 0;
+}
+
+.tooltip-label {
+  font-weight: 600;
+  color: #aaa;
+  margin-right: 8px;
+}
+
+.tooltip-value {
+  color: #fff;
+}
+
+.tooltip-link {
+  color: #4da6ff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tooltip-link:hover {
+  color: #66b3ff;
+}
+
+.tooltip-trigger {
+  position: relative;
+}
+
+.tooltip-trigger.stat-card {
+  cursor: help;
 }
 

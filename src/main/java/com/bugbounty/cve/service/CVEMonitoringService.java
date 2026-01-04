@@ -42,9 +42,9 @@ public class CVEMonitoringService {
         log.info("Starting scheduled CVE polling");
         
         try {
-            // Fetch CVEs from last 24 hours
+            // Fetch CVEs from last 7 days (1 week)
             LocalDateTime endDate = LocalDateTime.now();
-            LocalDateTime startDate = endDate.minusHours(24);
+            LocalDateTime startDate = endDate.minusDays(7);
             
             // Only fetch CRITICAL and HIGH severity CVEs by default
             List<String> severities = List.of("CRITICAL", "HIGH");

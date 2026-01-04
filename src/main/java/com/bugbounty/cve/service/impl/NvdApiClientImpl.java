@@ -122,7 +122,7 @@ public class NvdApiClientImpl implements NvdApiClient {
             int resultsPerPage = 2000; // NVD max is 2000
             
             // Use generate to emit page indices, then flatMap to fetch and parse each page
-            return Flux.generate(
+            return Flux.<PageData, Integer>generate(
                     () -> startIndex,
                     (currentIndex, sink) -> {
                         try {
@@ -155,7 +155,7 @@ public class NvdApiClientImpl implements NvdApiClient {
                         }
                     }
             )
-            .flatMap(pageData -> {
+            .flatMap((PageData pageData) -> {
                 // Parse and emit all CVEs from this page
                 try {
                     JsonNode root = objectMapper.readTree(pageData.response);
@@ -182,18 +182,8 @@ public class NvdApiClientImpl implements NvdApiClient {
         });
     }
     
-    // Helper class to hold page data
-    private static class PageData {
-        final int index;
-        final String response;
-        final int totalResults;
-        
-        PageData(int index, String response, int totalResults) {
-            this.index = index;
-            this.response = response;
-            this.totalResults = totalResults;
-        }
-    }
+    // Helper record to hold page data
+    private record PageData(int index, String response, int totalResults) {}
     
     private String fetchCVEPage(int startIndex, int resultsPerPage, String startDate, String endDate, String severity) {
         WebClient.RequestHeadersSpec<?> request = getWebClient().get()

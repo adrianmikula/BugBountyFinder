@@ -66,7 +66,7 @@ app:
 
 ### Automatic Polling
 
-The system automatically polls NVD API for new CVEs on a scheduled interval (default: 1 hour). Only CRITICAL and HIGH severity CVEs are processed by default.
+The system automatically polls NVD API for new CVEs on a scheduled interval (default: 1 hour). It fetches CVEs from the last 7 days (1 week). Only CRITICAL and HIGH severity CVEs are processed by default.
 
 To change the polling interval or severity threshold, update `application.yml`:
 

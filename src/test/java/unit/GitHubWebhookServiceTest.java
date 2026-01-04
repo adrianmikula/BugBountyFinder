@@ -1,6 +1,9 @@
 package com.bugbounty.webhook.service;
 
+import com.bugbounty.cve.service.CommitAnalysisService;
+import com.bugbounty.cve.service.CodebaseIndexService;
 import com.bugbounty.repository.domain.Repository;
+import com.bugbounty.repository.repository.RepositoryRepository;
 import com.bugbounty.repository.service.RepositoryService;
 import com.bugbounty.webhook.dto.GitHubPushEvent;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,13 +13,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Flux;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,8 +32,30 @@ class GitHubWebhookServiceTest {
     @Mock
     private RepositoryService repositoryService;
 
+    @Mock
+    private RepositoryRepository repositoryRepository;
+
+    @Mock
+    private CommitAnalysisService commitAnalysisService;
+
+    @Mock
+    private CodebaseIndexService codebaseIndexService;
+
     @InjectMocks
     private GitHubWebhookService webhookService;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        // Default mocks for all tests - can be overridden in individual tests
+        // Using lenient() because these mocks may not be used in all tests
+        // Mock repository not found in DB (no language set, so CVE analysis is skipped)
+        lenient().when(repositoryRepository.findByUrl(anyString())).thenReturn(Optional.empty());
+        // Mock commit analysis to return empty flux (no CVEs found)
+        lenient().when(commitAnalysisService.analyzeCommit(anyString(), anyString(), anyString(), any(), anyString()))
+                .thenReturn(Flux.empty());
+        // Mock getCommitDiff to return empty diff (in case CVE analysis is triggered)
+        lenient().when(repositoryService.getCommitDiff(any(Repository.class), anyString())).thenReturn("");
+    }
 
     private GitHubPushEvent createValidPushEvent() {
         GitHubPushEvent pushEvent = new GitHubPushEvent();
@@ -261,6 +289,8 @@ class GitHubWebhookServiceTest {
         
         when(repositoryService.isCloned(any(Repository.class))).thenReturn(true);
         doNothing().when(repositoryService).updateRepository(any(Repository.class));
+        // Mock repository not found in DB (no language set, so CVE analysis is skipped)
+        when(repositoryRepository.findByUrl(anyString())).thenReturn(Optional.empty());
         
         // When
         boolean result = webhookService.processPushEvent(pushEvent);

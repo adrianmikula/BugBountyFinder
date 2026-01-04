@@ -5,7 +5,7 @@
 
 The code analysis module will be responsible for locating bugs in the code, and determining the correct code fix for the bugs that are discovered.  
 
-To begin with lets keep it simple and just look for the code patterns that match security bugs reported in any of the CVEs that has been issued in the last 48 hours. 
+To begin with lets keep it simple and just look for the code patterns that match security bugs reported in any of the CVEs that has been issued in the last week (7 days). 
 
 I don't want to just use plain text searches and regex matching for bugs.  We need to integrate with LLM model(s) which are adept at understanding codebase structure, code review and code fixes with a high success rate and a low halluciantion rate.  
 

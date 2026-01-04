@@ -3,6 +3,9 @@ import Statistics from './components/Statistics'
 import BugFindings from './components/BugFindings'
 import Bounties from './components/Bounties'
 import PRs from './components/PRs'
+import AddRepository from './components/AddRepository'
+import RepositoriesList from './components/RepositoriesList'
+import CVEList from './components/CVEList'
 import './App.css'
 
 function App() {
@@ -100,6 +103,12 @@ function App() {
       )}
 
       <Statistics data={statistics} />
+
+      <RepositoriesList />
+
+      <CVEList />
+
+      <AddRepository onRepositoryAdded={fetchAllData} />
 
       <BugFindings 
         findings={bugFindings} 

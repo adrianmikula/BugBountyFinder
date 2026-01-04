@@ -1,4 +1,5 @@
 import React from 'react'
+import Tooltip from './Tooltip'
 
 function PRs({ prs }) {
   const getStatusBadge = (status) => {
@@ -33,6 +34,115 @@ function PRs({ prs }) {
     return null
   }
 
+  const renderRepositoryTooltip = (repositoryUrl) => {
+    if (!repositoryUrl) return null
+    const parts = repositoryUrl.split('/')
+    const owner = parts[parts.length - 2]
+    const repo = parts[parts.length - 1]
+    
+    return (
+      <div>
+        <div className="tooltip-title">Repository Details</div>
+        <div className="tooltip-content">
+          <div className="tooltip-item">
+            <span className="tooltip-label">Full URL:</span>
+            <span className="tooltip-value">{repositoryUrl}</span>
+          </div>
+          <div className="tooltip-item">
+            <span className="tooltip-label">Owner:</span>
+            <span className="tooltip-value">{owner}</span>
+          </div>
+          <div className="tooltip-item">
+            <span className="tooltip-label">Repository:</span>
+            <span className="tooltip-value">{repo}</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderCommitTooltip = (commitId, repositoryUrl) => {
+    if (!commitId) return null
+    
+    return (
+      <div>
+        <div className="tooltip-title">Commit Details</div>
+        <div className="tooltip-content">
+          <div className="tooltip-item">
+            <span className="tooltip-label">Full Commit ID:</span>
+            <span className="tooltip-value">{commitId}</span>
+          </div>
+          {repositoryUrl && (
+            <div className="tooltip-item" style={{ marginTop: '8px' }}>
+              <a 
+                href={`${repositoryUrl}/commit/${commitId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="tooltip-link"
+                onClick={(e) => e.stopPropagation()}
+              >
+                View on GitHub →
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const renderCVETooltip = (cveId, pr) => {
+    if (!cveId) return null
+    
+    return (
+      <div>
+        <div className="tooltip-title">CVE Details</div>
+        <div className="tooltip-content">
+          <div className="tooltip-item">
+            <span className="tooltip-label">CVE ID:</span>
+            <span className="tooltip-value">{cveId}</span>
+          </div>
+          {pr && (
+            <>
+              {pr.presenceConfidence !== null && pr.presenceConfidence !== undefined && (
+                <div className="tooltip-item">
+                  <span className="tooltip-label">Presence Confidence:</span>
+                  <span className="tooltip-value">
+                    {(pr.presenceConfidence * 100).toFixed(1)}%
+                  </span>
+                </div>
+              )}
+              {pr.fixConfidence !== null && pr.fixConfidence !== undefined && (
+                <div className="tooltip-item">
+                  <span className="tooltip-label">Fix Confidence:</span>
+                  <span className="tooltip-value">
+                    {(pr.fixConfidence * 100).toFixed(1)}%
+                  </span>
+                </div>
+              )}
+              {pr.status && (
+                <div className="tooltip-item">
+                  <span className="tooltip-label">Status:</span>
+                  <span className="tooltip-value">{pr.status}</span>
+                </div>
+              )}
+            </>
+          )}
+          <div className="tooltip-item" style={{ marginTop: '8px' }}>
+            <a 
+              href={`https://nvd.nist.gov/vuln/detail/${cveId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="tooltip-link"
+              onClick={(e) => e.stopPropagation()}
+            >
+              View on NVD →
+            </a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="section">
       <h2>Historical Pull Requests</h2>
@@ -59,21 +169,45 @@ function PRs({ prs }) {
               const prUrl = getPRUrl(pr.repositoryUrl, pr.pullRequestId)
               return (
                 <tr key={pr.id}>
-                  <td>
-                    <a 
-                      href={pr.repositoryUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="link"
+                  <td style={{ position: 'relative', padding: '12px' }}>
+                    <Tooltip 
+                      content={renderRepositoryTooltip(pr.repositoryUrl)}
+                      id={`pr-repo-tooltip-${pr.id}`}
+                      className="stat-card"
                     >
-                      {pr.repositoryUrl?.split('/').pop() || pr.repositoryUrl}
-                    </a>
+                      <div style={{ padding: '4px 0', minHeight: '24px', width: '100%' }}>
+                        <a 
+                          href={pr.repositoryUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="link"
+                        >
+                          {pr.repositoryUrl?.split('/').pop() || pr.repositoryUrl}
+                        </a>
+                      </div>
+                    </Tooltip>
                   </td>
-                  <td>
-                    <code>{pr.commitId?.substring(0, 8) || 'N/A'}</code>
+                  <td style={{ position: 'relative', padding: '12px' }}>
+                    <Tooltip 
+                      content={renderCommitTooltip(pr.commitId, pr.repositoryUrl)}
+                      id={`pr-commit-tooltip-${pr.id}`}
+                      className="stat-card"
+                    >
+                      <div style={{ padding: '4px 0', minHeight: '24px', width: '100%' }}>
+                        <code>{pr.commitId?.substring(0, 8) || 'N/A'}</code>
+                      </div>
+                    </Tooltip>
                   </td>
-                  <td>
-                    <strong>{pr.cveId}</strong>
+                  <td style={{ position: 'relative', padding: '12px' }}>
+                    <Tooltip 
+                      content={renderCVETooltip(pr.cveId, pr)}
+                      id={`pr-cve-tooltip-${pr.id}`}
+                      className="stat-card"
+                    >
+                      <div style={{ padding: '4px 0', minHeight: '24px', width: '100%' }}>
+                        <strong>{pr.cveId}</strong>
+                      </div>
+                    </Tooltip>
                   </td>
                   <td>
                     {prUrl ? (

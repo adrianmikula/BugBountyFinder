@@ -14,7 +14,7 @@ public interface NvdApiClient {
     /**
      * Fetch recently published CVEs from NVD.
      * 
-     * @param startDate Start date for CVE search (typically last 24 hours)
+     * @param startDate Start date for CVE search (typically last 7 days)
      * @param endDate End date for CVE search
      * @return Flux of CVE domain objects
      */

@@ -6,7 +6,8 @@ Automated bug bounty and PR bounty hunting system built with Spring Boot 3.x.
 
 - **Bounty Polling**: Automatically polls Algora and Polar.sh for new bounties
 - **GitHub Webhooks**: Real-time notifications when commits are pushed to repositories
-- **Repository Management**: Clones and manages GitHub repositories
+- **Repository Management**: Clones and manages GitHub repositories via REST API
+- **Repository API**: Add, list, and manage repositories through `/api/repositories` endpoints
 - **LLM Integration**: Uses Ollama for local LLM inference (cost-effective)
 - **Virtual Threads**: High concurrency with Project Loom
 - **TDD Approach**: Comprehensive unit tests for all core components
@@ -59,6 +60,16 @@ This project follows industry-standard best practices. See the [Coding Standards
 - **Java 21 Features**: Modern language features and usage guidelines
 - **Common Gotchas**: [Common pitfalls and problems](docs/standards/common-gotchas.md) to avoid - includes Spring Boot test configuration, reactive programming pitfalls, and more
 
+### MCP Servers Setup
+
+Enhance your AI coding workflow with Model Context Protocol servers. See the [MCP Servers Setup Guide](docs/setup/MCP_SERVERS_SETUP.md) for:
+
+- **Code Indexing**: Fast semantic codebase search (60-80% token savings)
+- **Memory Storage**: Long-term context across sessions (20-40% token savings)
+- **Spring Boot Monitoring**: Real-time logs, health, and metrics (70-90% token savings)
+- **Build Tool Integration**: Gradle and npm dependency analysis
+- **Quick Reference**: [MCP Quick Reference](docs/setup/MCP_QUICK_REFERENCE.md)
+
 ## Getting Started
 
 ### Prerequisites
@@ -86,6 +97,34 @@ The setup script will:
 - Start PostgreSQL and Redis via Docker
 - Create configuration files and directories
 - Build the project
+
+### API Keys Configuration
+
+Before running the application, you need to configure API keys for external services:
+
+1. **Copy the example environment file:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Set up API keys** - See [API Keys Setup Guide](docs/setup/API_KEYS_SETUP.md) for detailed instructions:
+   - **GitHub**: Personal Access Token (recommended) and Webhook Secret (required)
+   - **NVD**: API Key (optional but recommended for better rate limits)
+   - **Algora/Polar.sh**: API Keys (optional, if required by platform)
+   - **Ollama**: No API key needed (local service)
+
+3. **Edit `.env` file** with your actual API keys
+
+**Quick Start (Minimum Required):**
+```bash
+# Generate GitHub webhook secret
+openssl rand -hex 32
+
+# Add to .env file:
+GITHUB_WEBHOOK_SECRET=your-generated-secret-here
+```
+
+For full setup instructions, see [API Keys Setup Guide](docs/setup/API_KEYS_SETUP.md).
 
 After setup, use mise commands for daily development:
 ```bash
@@ -224,6 +263,40 @@ See `MISE_SETUP.md` for detailed mise setup instructions.
 
 See `COMMANDS.md` for a complete catalog of all available commands, scripts, and workflows.
 
+## Repository Management
+
+### Adding Repositories
+
+You can add repositories to monitor using the REST API:
+
+```bash
+# Add a repository
+curl -X POST http://localhost:8080/api/repositories \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://github.com/microsoft/vscode",
+    "language": "TypeScript",
+    "defaultBranch": "main"
+  }'
+```
+
+### Recommended Repositories
+
+For testing, we recommend repositories with high commit activity and active bug bounty programs. See [Recommended Repositories](docs/recommended-repositories.md) for a curated list including:
+
+- **microsoft/vscode** - Very high activity (20-50+ commits/day), Microsoft bug bounty
+- **facebook/react** - High activity, Meta bug bounty
+- **vercel/next.js** - High activity, modern web framework
+- **kubernetes/kubernetes** - Very high activity, CNCF security program
+
+### API Endpoints
+
+- `POST /api/repositories` - Add a new repository
+- `GET /api/repositories` - List all repositories
+- `GET /api/repositories/{id}` - Get repository by ID
+- `GET /api/repositories/by-url?url={url}` - Get repository by URL
+- `DELETE /api/repositories?url={url}` - Delete a repository
+
 ## Building
 
 ```bash
@@ -244,6 +317,7 @@ See `COMMANDS.md` for a complete catalog of all available commands, scripts, and
 - Domain models (Bounty, Repository) with tests
 - BountyPollingService with tests
 - RepositoryService with tests
+- **Repository Management API** - Add, list, and manage repositories via REST endpoints
 - JPA entities and repositories
 - API client implementations (Algora, Polar)
 - Triage queue service with Redis
