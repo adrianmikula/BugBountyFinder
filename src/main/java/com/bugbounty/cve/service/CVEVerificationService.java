@@ -23,9 +23,14 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Service for cross-LLM verification of CVE findings and fix generation.
- * Uses a second LLM to verify CVE presence and generate fixes,
- * then uses the first LLM to confirm the fix.
+ * Service for cross-LLM verification of issue analysis and fix generation.
+ * 
+ * Verification Steps:
+ * 1. First cross-check: Verify we understand the root cause of the reported bug
+ * 2. Second cross-check: Verify that the proposed code fix solves the reported GitHub issue
+ * 
+ * Legacy: This service was originally for CVE verification but has been updated
+ * to work with GitHub issue analysis.
  */
 @Service
 @RequiredArgsConstructor
@@ -57,25 +62,26 @@ public class CVEVerificationService {
             BugFindingEntity entity = entityOpt.get();
             BugFinding finding = bugFindingMapper.toDomain(entity);
             
-            log.info("Verifying bug finding {} for CVE {} in commit {}", 
-                    findingId, finding.getCveId(), finding.getCommitId());
+            log.info("Verifying bug finding {} for issue #{} in repository {}", 
+                    findingId, finding.getIssueId(), finding.getRepositoryUrl());
             
-            // Step 1: Second LLM verifies CVE presence
-            BugFinding verified = verifyCVEPresence(finding);
+            // Step 1: First cross-check - Verify we understand the root cause
+            BugFinding rootCauseVerified = verifyRootCauseUnderstanding(finding);
             
-            if (verified.getPresenceConfidence() == null || verified.getPresenceConfidence() < 0.7) {
-                log.warn("CVE verification failed or low confidence for finding {}", findingId);
-                verified.setRequiresHumanReview(true);
-                verified.setStatus(BugFinding.BugFindingStatus.HUMAN_REVIEW);
-                updateBugFinding(verified);
-                return verified;
+            if (rootCauseVerified.getRootCauseConfidence() == null || 
+                rootCauseVerified.getRootCauseConfidence() < 0.7) {
+                log.warn("Root cause understanding verification failed or low confidence for finding {}", findingId);
+                rootCauseVerified.setRequiresHumanReview(true);
+                rootCauseVerified.setStatus(BugFinding.BugFindingStatus.HUMAN_REVIEW);
+                updateBugFinding(rootCauseVerified);
+                return rootCauseVerified;
             }
             
-            // Step 2: Second LLM generates fix
-            BugFinding withFix = generateFix(verified);
+            // Step 2: Generate fix code
+            BugFinding withFix = generateFix(rootCauseVerified);
             
-            // Step 3: First LLM confirms fix
-            BugFinding confirmed = confirmFix(withFix);
+            // Step 3: Second cross-check - Verify that the fix solves the GitHub issue
+            BugFinding confirmed = verifyFixSolvesIssue(withFix);
             
             // Update status based on confidence
             if (confirmed.getFixConfidence() != null && confirmed.getFixConfidence() >= 0.8) {
@@ -99,52 +105,42 @@ public class CVEVerificationService {
     }
     
     /**
-     * Step 1: Second LLM verifies CVE presence.
+     * Step 1: First cross-check - Verify we understand the root cause of the reported bug.
      */
-    private BugFinding verifyCVEPresence(BugFinding finding) {
+    private BugFinding verifyRootCauseUnderstanding(BugFinding finding) {
         try {
-            // Get CVE catalog entry
-            var catalogOpt = catalogRepository.findByCveIdAndLanguage(
-                    finding.getCveId(), 
-                    getRepositoryLanguage(finding.getRepositoryUrl()));
-            
-            if (catalogOpt.isEmpty()) {
-                log.warn("CVE catalog entry not found for {} in language", finding.getCveId());
-                finding.setPresenceConfidence(0.0);
-                return finding;
-            }
-            
-            var catalog = catalogOpt.get();
-            
             // Get codebase index
             Optional<CodebaseIndexEntity> indexOpt = codebaseIndexService.getIndex(
                     finding.getRepositoryUrl(), 
                     getRepositoryLanguage(finding.getRepositoryUrl()));
             String codebaseIndex = indexOpt.map(CodebaseIndexEntity::getIndexData).orElse("{}");
             
-            // Build verification prompt
-            String prompt = buildVerificationPrompt(finding, catalog, codebaseIndex);
+            // Build root cause verification prompt
+            String prompt = buildRootCauseVerificationPrompt(finding, codebaseIndex);
             Prompt aiPrompt = new PromptTemplate(prompt).create(Map.of());
             
-            // Use LLM for verification (second verification)
+            // Use LLM for verification
             ChatResponse response = chatClient.call(aiPrompt);
             String content = response.getResult().getOutput().getContent();
             
             // Parse response
-            VerificationResult result = parseVerificationResponse(content);
+            RootCauseVerificationResult result = parseRootCauseVerificationResponse(content);
             
             // Update finding
-            finding.setPresenceConfidence(result.confidence);
+            finding.setRootCauseConfidence(result.confidence);
+            finding.setRootCauseAnalysis(
+                    (finding.getRootCauseAnalysis() != null ? finding.getRootCauseAnalysis() + "\n\n" : "") +
+                    "Root Cause Verification: " + result.analysis);
             finding.setStatus(BugFinding.BugFindingStatus.VERIFIED);
             finding.setVerificationNotes(
                     (finding.getVerificationNotes() != null ? finding.getVerificationNotes() + "\n\n" : "") +
-                    "Verification: " + result.notes);
+                    "Root Cause Verification: " + result.notes);
             
             return finding;
             
         } catch (Exception e) {
-            log.error("Error verifying CVE presence for finding {}", finding.getId(), e);
-            finding.setPresenceConfidence(0.0);
+            log.error("Error verifying root cause understanding for finding {}", finding.getId(), e);
+            finding.setRootCauseConfidence(0.0);
             finding.setRequiresHumanReview(true);
             return finding;
         }
@@ -155,18 +151,6 @@ public class CVEVerificationService {
      */
     private BugFinding generateFix(BugFinding finding) {
         try {
-            // Get CVE catalog entry
-            var catalogOpt = catalogRepository.findByCveIdAndLanguage(
-                    finding.getCveId(), 
-                    getRepositoryLanguage(finding.getRepositoryUrl()));
-            
-            if (catalogOpt.isEmpty()) {
-                log.warn("CVE catalog entry not found for fix generation");
-                return finding;
-            }
-            
-            var catalog = catalogOpt.get();
-            
             // Get codebase index
             Optional<CodebaseIndexEntity> indexOpt = codebaseIndexService.getIndex(
                     finding.getRepositoryUrl(), 
@@ -174,7 +158,7 @@ public class CVEVerificationService {
             String codebaseIndex = indexOpt.map(CodebaseIndexEntity::getIndexData).orElse("{}");
             
             // Build fix generation prompt
-            String prompt = buildFixGenerationPrompt(finding, catalog, codebaseIndex);
+            String prompt = buildFixGenerationPrompt(finding, codebaseIndex);
             Prompt aiPrompt = new PromptTemplate(prompt).create(Map.of());
             
             // Use LLM for fix generation (second LLM step)
@@ -201,50 +185,38 @@ public class CVEVerificationService {
     }
     
     /**
-     * Step 3: First LLM confirms fix correctness.
+     * Step 3: Second cross-check - Verify that the proposed code fix solves the reported GitHub issue.
      */
-    private BugFinding confirmFix(BugFinding finding) {
+    private BugFinding verifyFixSolvesIssue(BugFinding finding) {
         try {
-            // Get CVE catalog entry
-            var catalogOpt = catalogRepository.findByCveIdAndLanguage(
-                    finding.getCveId(), 
-                    getRepositoryLanguage(finding.getRepositoryUrl()));
-            
-            if (catalogOpt.isEmpty()) {
-                log.warn("CVE catalog entry not found for fix confirmation");
-                return finding;
-            }
-            
-            var catalog = catalogOpt.get();
-            
             // Get codebase index
             Optional<CodebaseIndexEntity> indexOpt = codebaseIndexService.getIndex(
                     finding.getRepositoryUrl(), 
                     getRepositoryLanguage(finding.getRepositoryUrl()));
             String codebaseIndex = indexOpt.map(CodebaseIndexEntity::getIndexData).orElse("{}");
             
-            // Build fix confirmation prompt
-            String prompt = buildFixConfirmationPrompt(finding, catalog, codebaseIndex);
+            // Build fix verification prompt (verify it solves the GitHub issue)
+            String prompt = buildFixVerificationPrompt(finding, codebaseIndex);
             Prompt aiPrompt = new PromptTemplate(prompt).create(Map.of());
             
-            // Use LLM for confirmation (first LLM final review)
+            // Use LLM for verification
             ChatResponse response = chatClient.call(aiPrompt);
             String content = response.getResult().getOutput().getContent();
             
             // Parse response
-            ConfirmationResult result = parseConfirmationResponse(content);
+            FixVerificationResult result = parseFixVerificationResponse(content);
             
             // Update finding
             finding.setFixConfidence(result.confidence);
             finding.setStatus(BugFinding.BugFindingStatus.FIX_CONFIRMED);
             finding.setVerificationNotes(
                     (finding.getVerificationNotes() != null ? finding.getVerificationNotes() + "\n\n" : "") +
-                    "Fix Confirmation: " + result.notes);
+                    "Fix Verification (solves issue): " + result.notes);
             
             return finding;
             
         } catch (Exception e) {
-            log.error("Error confirming fix for finding {}", finding.getId(), e);
+            log.error("Error verifying fix solves issue for finding {}", finding.getId(), e);
             finding.setFixConfidence(0.0);
             finding.setRequiresHumanReview(true);
             return finding;
@@ -252,171 +224,179 @@ public class CVEVerificationService {
     }
     
     /**
-     * Build verification prompt for second LLM.
+     * Build root cause verification prompt - First cross-check.
      */
-    private String buildVerificationPrompt(BugFinding finding, 
-                                          com.bugbounty.cve.entity.CVECatalogEntity catalog,
-                                          String codebaseIndex) {
+    private String buildRootCauseVerificationPrompt(BugFinding finding, String codebaseIndex) {
+        StringBuilder affectedCodeStr = new StringBuilder();
+        if (finding.getAffectedCode() != null) {
+            finding.getAffectedCode().forEach((file, code) -> {
+                affectedCodeStr.append(String.format("\n=== %s ===\n%s\n", file, code));
+            });
+        }
+        
         return """
-                Verify the presence of this CVE in the commit.
+                Verify that we understand the root cause of the reported bug in this GitHub issue.
                 
-                CVE: {cveId}
-                Summary: {summary}
-                Vulnerable Pattern: {vulnerablePattern}
+                Issue Title: {issueTitle}
+                Issue Description: {issueDescription}
                 
-                Commit Diff:
-                {commitDiff}
+                Initial Root Cause Analysis:
+                {rootCauseAnalysis}
                 
                 Affected Files:
                 {affectedFiles}
+                
+                Affected Code Sections:
+                {affectedCode}
                 
                 Codebase Structure:
                 {codebaseIndex}
                 
-                Initial Analysis Notes:
-                {initialNotes}
-                
                 Verify:
-                1. Is this CVE definitely present in the commit?
-                2. What is your confidence level (0.0-1.0)?
-                3. What specific code makes it vulnerable?
+                1. Do we correctly understand the root cause of the bug described in the issue?
+                2. Have we identified the correct files and code sections?
+                3. Is our analysis accurate and complete?
+                4. What is your confidence level (0.0-1.0) that we understand the root cause?
                 
                 Respond with JSON:
                 {{
-                  "present": true/false,
+                  "understood": true/false,
                   "confidence": 0.0-1.0,
-                  "vulnerableCode": "specific vulnerable code",
+                  "analysis": "refined or confirmed root cause analysis",
                   "notes": "verification notes"
                 }}
-                """.replace("{cveId}", finding.getCveId())
-                .replace("{summary}", catalog.getSummary())
-                .replace("{vulnerablePattern}", catalog.getVulnerablePattern() != null 
-                        ? catalog.getVulnerablePattern() : "")
-                .replace("{commitDiff}", finding.getCommitDiff() != null ? finding.getCommitDiff() : "")
+                """.replace("{issueTitle}", finding.getIssueTitle() != null ? finding.getIssueTitle() : "")
+                .replace("{issueDescription}", finding.getIssueDescription() != null ? finding.getIssueDescription() : "")
+                .replace("{rootCauseAnalysis}", finding.getRootCauseAnalysis() != null ? finding.getRootCauseAnalysis() : "")
                 .replace("{affectedFiles}", finding.getAffectedFiles() != null 
                         ? String.join("\n", finding.getAffectedFiles()) : "")
-                .replace("{codebaseIndex}", codebaseIndex)
-                .replace("{initialNotes}", finding.getVerificationNotes() != null 
-                        ? finding.getVerificationNotes() : "");
+                .replace("{affectedCode}", affectedCodeStr.toString())
+                .replace("{codebaseIndex}", codebaseIndex);
     }
     
     /**
-     * Build fix generation prompt for second LLM.
+     * Build fix generation prompt.
      */
-    private String buildFixGenerationPrompt(BugFinding finding,
-                                           com.bugbounty.cve.entity.CVECatalogEntity catalog,
-                                           String codebaseIndex) {
+    private String buildFixGenerationPrompt(BugFinding finding, String codebaseIndex) {
+        StringBuilder affectedCodeStr = new StringBuilder();
+        if (finding.getAffectedCode() != null) {
+            finding.getAffectedCode().forEach((file, code) -> {
+                affectedCodeStr.append(String.format("\n=== %s ===\n%s\n", file, code));
+            });
+        }
+        
         return """
-                Generate a code fix for this CVE vulnerability.
+                Generate a code fix for this GitHub issue.
                 
-                CVE: {cveId}
-                Summary: {summary}
-                Fixed Pattern: {fixedPattern}
+                Issue Title: {issueTitle}
+                Issue Description: {issueDescription}
                 
-                Vulnerable Code:
-                {vulnerableCode}
-                
-                Commit Diff:
-                {commitDiff}
+                Root Cause Analysis:
+                {rootCauseAnalysis}
                 
                 Affected Files:
                 {affectedFiles}
+                
+                Affected Code Sections:
+                {affectedCode}
                 
                 Codebase Structure:
                 {codebaseIndex}
                 
                 Generate:
-                1. Complete fix code that addresses the vulnerability
-                2. Ensure the fix follows the codebase patterns
-                3. Include all necessary changes
+                1. Complete fix code that addresses the bug described in the issue
+                2. Ensure the fix follows the codebase patterns and style
+                3. Include all necessary changes to solve the reported problem
+                4. Make sure the fix addresses the root cause we identified
                 
                 Respond with JSON:
                 {{
                   "fixCode": "complete fix code",
                   "notes": "fix generation notes"
                 }}
-                """.replace("{cveId}", finding.getCveId())
-                .replace("{summary}", catalog.getSummary())
-                .replace("{fixedPattern}", catalog.getFixedPattern() != null 
-                        ? catalog.getFixedPattern() : "")
-                .replace("{vulnerableCode}", finding.getVerificationNotes() != null 
-                        ? finding.getVerificationNotes() : "")
-                .replace("{commitDiff}", finding.getCommitDiff() != null ? finding.getCommitDiff() : "")
+                """.replace("{issueTitle}", finding.getIssueTitle() != null ? finding.getIssueTitle() : "")
+                .replace("{issueDescription}", finding.getIssueDescription() != null ? finding.getIssueDescription() : "")
+                .replace("{rootCauseAnalysis}", finding.getRootCauseAnalysis() != null ? finding.getRootCauseAnalysis() : "")
+                .replace("{affectedFiles}", finding.getAffectedFiles() != null 
+                        ? String.join("\n", finding.getAffectedFiles()) : "")
+                .replace("{affectedCode}", affectedCodeStr.toString())
+                .replace("{codebaseIndex}", codebaseIndex);
+    }
+    
+    /**
+     * Build fix verification prompt - Second cross-check: Verify fix solves the GitHub issue.
+     */
+    private String buildFixVerificationPrompt(BugFinding finding, String codebaseIndex) {
+        StringBuilder affectedCodeStr = new StringBuilder();
+        if (finding.getAffectedCode() != null) {
+            finding.getAffectedCode().forEach((file, code) -> {
+                affectedCodeStr.append(String.format("\n=== %s ===\n%s\n", file, code));
+            });
+        }
+        
+        return """
+                Verify that the proposed code fix solves the reported GitHub issue.
+                
+                Issue Title: {issueTitle}
+                Issue Description: {issueDescription}
+                
+                Root Cause Analysis:
+                {rootCauseAnalysis}
+                
+                Original Affected Code:
+                {affectedCode}
+                
+                Recommended Fix:
+                {recommendedFix}
+                
+                Affected Files:
+                {affectedFiles}
+                
+                Codebase Structure:
+                {codebaseIndex}
+                
+                Verify:
+                1. Does the fix solve the specific problem described in the GitHub issue?
+                2. Does it address the root cause we identified?
+                3. Is the fix code correct, complete, and follows codebase patterns?
+                4. Will this fix resolve the issue for the user who reported it?
+                5. What is your confidence (0.0-1.0) that this fix solves the issue?
+                
+                Respond with JSON:
+                {{
+                  "solvesIssue": true/false,
+                  "confidence": 0.0-1.0,
+                  "notes": "verification notes",
+                  "suggestions": "any improvements or concerns"
+                }}
+                """.replace("{issueTitle}", finding.getIssueTitle() != null ? finding.getIssueTitle() : "")
+                .replace("{issueDescription}", finding.getIssueDescription() != null ? finding.getIssueDescription() : "")
+                .replace("{rootCauseAnalysis}", finding.getRootCauseAnalysis() != null ? finding.getRootCauseAnalysis() : "")
+                .replace("{affectedCode}", affectedCodeStr.toString())
+                .replace("{recommendedFix}", finding.getRecommendedFix() != null 
+                        ? finding.getRecommendedFix() : "")
                 .replace("{affectedFiles}", finding.getAffectedFiles() != null 
                         ? String.join("\n", finding.getAffectedFiles()) : "")
                 .replace("{codebaseIndex}", codebaseIndex);
     }
     
     /**
-     * Build fix confirmation prompt for first LLM.
+     * Parse root cause verification response.
      */
-    private String buildFixConfirmationPrompt(BugFinding finding,
-                                            com.bugbounty.cve.entity.CVECatalogEntity catalog,
-                                            String codebaseIndex) {
-        return """
-                Review and confirm this CVE fix.
-                
-                CVE: {cveId}
-                Summary: {summary}
-                Fixed Pattern: {fixedPattern}
-                
-                Original Vulnerable Code:
-                {vulnerableCode}
-                
-                Recommended Fix:
-                {recommendedFix}
-                
-                Commit Diff:
-                {commitDiff}
-                
-                Codebase Structure:
-                {codebaseIndex}
-                
-                Review:
-                1. Does the fix correctly address the vulnerability?
-                2. Is the fix code correct and complete?
-                3. Does it follow codebase patterns?
-                4. What is your confidence in the fix (0.0-1.0)?
-                
-                Respond with JSON:
-                {{
-                  "correct": true/false,
-                  "confidence": 0.0-1.0,
-                  "notes": "review notes",
-                  "suggestions": "any improvements"
-                }}
-                """.replace("{cveId}", finding.getCveId())
-                .replace("{summary}", catalog.getSummary())
-                .replace("{fixedPattern}", catalog.getFixedPattern() != null 
-                        ? catalog.getFixedPattern() : "")
-                .replace("{vulnerableCode}", finding.getVerificationNotes() != null 
-                        ? finding.getVerificationNotes() : "")
-                .replace("{recommendedFix}", finding.getRecommendedFix() != null 
-                        ? finding.getRecommendedFix() : "")
-                .replace("{commitDiff}", finding.getCommitDiff() != null ? finding.getCommitDiff() : "")
-                .replace("{codebaseIndex}", codebaseIndex);
-    }
-    
-    /**
-     * Parse verification response.
-     */
-    private VerificationResult parseVerificationResponse(String content) {
+    private RootCauseVerificationResult parseRootCauseVerificationResponse(String content) {
         try {
             String jsonContent = extractJsonFromResponse(content);
             JsonNode node = objectMapper.readTree(jsonContent);
             
-            boolean present = node.has("present") && node.get("present").asBoolean();
+            boolean understood = node.has("understood") && node.get("understood").asBoolean();
             double confidence = node.has("confidence") ? node.get("confidence").asDouble() : 0.0;
+            String analysis = node.has("analysis") ? node.get("analysis").asText() : "";
             String notes = node.has("notes") ? node.get("notes").asText() : "";
             
-            if (node.has("vulnerableCode")) {
-                notes += "\nVulnerable Code: " + node.get("vulnerableCode").asText();
-            }
-            
-            return new VerificationResult(present, confidence, notes);
+            return new RootCauseVerificationResult(understood, confidence, analysis, notes);
         } catch (Exception e) {
-            log.error("Failed to parse verification response: {}", content, e);
-            return new VerificationResult(false, 0.0, "Failed to parse response: " + e.getMessage());
+            log.error("Failed to parse root cause verification response: {}", content, e);
+            return new RootCauseVerificationResult(false, 0.0, "", "Failed to parse response: " + e.getMessage());
         }
     }
     
@@ -439,14 +419,14 @@ public class CVEVerificationService {
     }
     
     /**
-     * Parse confirmation response.
+     * Parse fix verification response.
      */
-    private ConfirmationResult parseConfirmationResponse(String content) {
+    private FixVerificationResult parseFixVerificationResponse(String content) {
         try {
             String jsonContent = extractJsonFromResponse(content);
             JsonNode node = objectMapper.readTree(jsonContent);
             
-            boolean correct = node.has("correct") && node.get("correct").asBoolean();
+            boolean solvesIssue = node.has("solvesIssue") && node.get("solvesIssue").asBoolean();
             double confidence = node.has("confidence") ? node.get("confidence").asDouble() : 0.0;
             String notes = node.has("notes") ? node.get("notes").asText() : "";
             
@@ -454,10 +434,10 @@ public class CVEVerificationService {
                 notes += "\nSuggestions: " + node.get("suggestions").asText();
             }
             
-            return new ConfirmationResult(correct, confidence, notes);
+            return new FixVerificationResult(solvesIssue, confidence, notes);
         } catch (Exception e) {
-            log.error("Failed to parse confirmation response: {}", content, e);
-            return new ConfirmationResult(false, 0.0, "Failed to parse response: " + e.getMessage());
+            log.error("Failed to parse fix verification response: {}", content, e);
+            return new FixVerificationResult(false, 0.0, "Failed to parse response: " + e.getMessage());
         }
     }
     
@@ -496,8 +476,8 @@ public class CVEVerificationService {
     }
     
     // Result classes
-    private record VerificationResult(boolean present, double confidence, String notes) {}
+    private record RootCauseVerificationResult(boolean understood, double confidence, String analysis, String notes) {}
     private record FixResult(String fixCode, String notes) {}
-    private record ConfirmationResult(boolean correct, double confidence, String notes) {}
+    private record FixVerificationResult(boolean solvesIssue, double confidence, String notes) {}
 }
 

@@ -35,7 +35,9 @@ import java.time.Duration;
         "spring.datasource.hikari.minimum-idle=1",
         "spring.datasource.hikari.max-lifetime=30000",
         "spring.datasource.hikari.idle-timeout=10000",
-        "spring.datasource.hikari.leak-detection-threshold=5000"
+        "spring.datasource.hikari.leak-detection-threshold=5000",
+        // Hibernate: Let Hibernate manage autoCommit (disable it so Hibernate can commit transactions)
+        "spring.jpa.properties.hibernate.connection.provider_disables_autocommit=true"
     }
 )
 @Testcontainers
@@ -55,7 +57,7 @@ public abstract class AbstractComponentTest {
             .withUsername("test")
             .withPassword("test")
             .withReuse(false)  // Disable reuse to ensure clean state for each test run
-            .waitingFor(Wait.forListeningPort())
+            .waitingFor(Wait.forListeningPort())  // Wait for port to be listening
             .withStartupTimeout(Duration.ofSeconds(30));
 
     /**
@@ -75,11 +77,15 @@ public abstract class AbstractComponentTest {
      * Configure Spring properties with TestContainer dynamic values.
      * This method is called by Spring before context initialization.
      * TestContainers automatically starts containers before this method is called.
+     * 
+     * Note: Method references are used to ensure values are resolved lazily when Spring
+     * actually needs them, giving containers time to fully start.
      */
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         // Override Spring properties with TestContainer values
-        // Using method references ensures values are resolved when needed
+        // Using method references ensures values are resolved when needed (lazy evaluation)
+        // This gives containers time to fully start before connections are attempted
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);

@@ -29,9 +29,9 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-        # Prevent connection validation during context shutdown
-        connection:
-          provider_disables_autocommit: true
+        # Disable autoCommit to allow Hibernate to manage transactions
+        # This tells Hibernate to disable autoCommit on connections it obtains
+        connection_provider_disables_autocommit: true
     # Close entity manager factory gracefully
     open-in-view: false
   

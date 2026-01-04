@@ -130,7 +130,14 @@ function CVEList() {
     return (
       <div className="section" style={{ fontSize: '0.75rem' }}>
         <h2 style={{ fontSize: '1rem', marginBottom: '8px' }}>Relevant CVEs</h2>
-        <div style={{ color: '#d32f2f' }}>Error: {error}</div>
+        <div style={{ color: '#d32f2f' }}>
+          <div style={{ marginBottom: '8px' }}>Error: {error}</div>
+          {error.includes('404') || error.includes('Failed to fetch') ? (
+            <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '4px' }}>
+              The CVE endpoint may not be available. Please restart the backend server to load the new CVEController.
+            </div>
+          ) : null}
+        </div>
       </div>
     )
   }

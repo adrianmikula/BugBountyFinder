@@ -102,7 +102,8 @@ public class JGitOperations implements GitOperations {
         try (Stream<Path> paths = Files.walk(fullPath)) {
             return paths
                     .filter(Files::isRegularFile)
-                    .map(path -> fullPath.relativize(path).toString())
+                    .map(path -> fullPath.relativize(path))
+                    .map(path -> path.toString().replace('\\', '/')) // Normalize path separators to forward slashes
                     .toArray(String[]::new);
         }
     }

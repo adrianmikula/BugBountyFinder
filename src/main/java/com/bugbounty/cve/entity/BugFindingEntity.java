@@ -15,6 +15,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "bug_findings", indexes = {
     @Index(name = "idx_bug_findings_repo_commit", columnList = "repositoryUrl,commitId"),
+    @Index(name = "idx_bug_findings_repo_issue", columnList = "repositoryUrl,issueId"),
     @Index(name = "idx_bug_findings_cve", columnList = "cveId"),
     @Index(name = "idx_bug_findings_status", columnList = "status"),
     @Index(name = "idx_bug_findings_human_review", columnList = "requiresHumanReview,humanReviewed")
@@ -32,10 +33,31 @@ public class BugFindingEntity {
     @Column(nullable = false, length = 500)
     private String repositoryUrl;
 
-    @Column(nullable = false, length = 255)
+    // Issue-related fields (new)
+    @Column(length = 50)
+    private String issueId; // GitHub issue number
+    
+    @Column(length = 500)
+    private String issueTitle;
+    
+    @Column(columnDefinition = "TEXT")
+    private String issueDescription;
+    
+    // Root cause analysis fields (new)
+    @Column(columnDefinition = "TEXT")
+    private String rootCauseAnalysis; // Detailed explanation of root cause
+    
+    @Column(name = "root_cause_confidence")
+    private Double rootCauseConfidence; // 0.0-1.0
+    
+    @Column(columnDefinition = "TEXT")
+    private String affectedCode; // JSON map of file -> code sections/methods
+
+    // Legacy CVE fields (now nullable for issue-based analysis)
+    @Column(length = 255)
     private String commitId;
 
-    @Column(nullable = false, length = 50)
+    @Column(length = 50)
     private String cveId;
 
     @Column(nullable = false, length = 50)

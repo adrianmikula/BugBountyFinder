@@ -66,6 +66,12 @@ public class CVEMonitoringService {
     public Flux<Void> processNewCVE(CVE cve) {
         log.info("Processing new CVE: {} (Severity: {})", cve.getCveId(), cve.getSeverity());
         
+        // Check if CVE already exists
+        if (cveRepository.existsByCveId(cve.getCveId())) {
+            log.debug("CVE {} already exists, skipping", cve.getCveId());
+            return Flux.empty();
+        }
+        
         try {
             // Save CVE to database
             CVEEntity entity = cveMapper.toEntity(cve);

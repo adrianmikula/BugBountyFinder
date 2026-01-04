@@ -1,10 +1,13 @@
 package com.bugbounty.webhook.service;
 
+import com.bugbounty.bounty.domain.Bounty;
+import com.bugbounty.bounty.service.GitHubIssueScannerService;
 import com.bugbounty.cve.service.CommitAnalysisService;
 import com.bugbounty.cve.service.CodebaseIndexService;
 import com.bugbounty.repository.domain.Repository;
 import com.bugbounty.repository.repository.RepositoryRepository;
 import com.bugbounty.repository.service.RepositoryService;
+import com.bugbounty.webhook.dto.GitHubIssueEvent;
 import com.bugbounty.webhook.dto.GitHubPushEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +43,9 @@ class GitHubWebhookServiceTest {
 
     @Mock
     private CodebaseIndexService codebaseIndexService;
+
+    @Mock
+    private GitHubIssueScannerService githubIssueScannerService;
 
     @InjectMocks
     private GitHubWebhookService webhookService;
@@ -364,6 +370,241 @@ class GitHubWebhookServiceTest {
         
         // Then
         assertTrue(result);
+    }
+
+    // Issue Event Tests
+
+    private GitHubIssueEvent createValidIssueEvent() {
+        GitHubIssueEvent issueEvent = new GitHubIssueEvent();
+        issueEvent.setAction("opened");
+        
+        GitHubIssueEvent.Issue issue = new GitHubIssueEvent.Issue();
+        issue.setId(123456L);
+        issue.setNumber(42);
+        issue.setTitle("Fix security vulnerability - $500 bounty");
+        issue.setBody("This issue has a $500 bounty attached.");
+        issue.setState("open");
+        issue.setCreatedAt("2024-01-01T12:00:00Z");
+        issue.setUpdatedAt("2024-01-01T12:00:00Z");
+        issue.setPullRequest(null); // This is an issue, not a PR
+        issueEvent.setIssue(issue);
+        
+        GitHubIssueEvent.Repository repo = new GitHubIssueEvent.Repository();
+        repo.setId(789012L);
+        repo.setName("test-repo");
+        repo.setFullName("owner/test-repo");
+        repo.setCloneUrl("https://github.com/owner/test-repo.git");
+        repo.setHtmlUrl("https://github.com/owner/test-repo");
+        repo.setDefaultBranch("main");
+        issueEvent.setRepository(repo);
+        
+        return issueEvent;
+    }
+
+    @Test
+    @DisplayName("Should process valid opened issue event successfully")
+    void shouldProcessValidOpenedIssueEvent() {
+        // Given
+        GitHubIssueEvent issueEvent = createValidIssueEvent();
+        Bounty bounty = Bounty.builder()
+                .issueId("42")
+                .repositoryUrl("https://github.com/owner/test-repo")
+                .platform("github")
+                .amount(new java.math.BigDecimal("500.00"))
+                .title("Fix security vulnerability - $500 bounty")
+                .build();
+        
+        when(githubIssueScannerService.processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(bounty);
+        
+        // When
+        boolean result = webhookService.processIssueEvent(issueEvent);
+        
+        // Then
+        assertTrue(result);
+        verify(githubIssueScannerService, times(1)).processIssueFromWebhook(
+                eq("https://github.com/owner/test-repo"),
+                eq("42"),
+                eq("Fix security vulnerability - $500 bounty"),
+                eq("This issue has a $500 bounty attached."));
+    }
+
+    @Test
+    @DisplayName("Should process reopened issue event successfully")
+    void shouldProcessReopenedIssueEvent() {
+        // Given
+        GitHubIssueEvent issueEvent = createValidIssueEvent();
+        issueEvent.setAction("reopened");
+        Bounty bounty = Bounty.builder()
+                .issueId("42")
+                .repositoryUrl("https://github.com/owner/test-repo")
+                .platform("github")
+                .amount(new java.math.BigDecimal("500.00"))
+                .build();
+        
+        when(githubIssueScannerService.processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(bounty);
+        
+        // When
+        boolean result = webhookService.processIssueEvent(issueEvent);
+        
+        // Then
+        assertTrue(result);
+        verify(githubIssueScannerService, times(1)).processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Should return false for null issue event")
+    void shouldReturnFalseForNullIssueEvent() {
+        // When
+        boolean result = webhookService.processIssueEvent(null);
+        
+        // Then
+        assertFalse(result);
+        verify(githubIssueScannerService, never()).processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Should return false for issue event without issue")
+    void shouldReturnFalseForIssueEventWithoutIssue() {
+        // Given
+        GitHubIssueEvent issueEvent = new GitHubIssueEvent();
+        issueEvent.setIssue(null);
+        issueEvent.setRepository(new GitHubIssueEvent.Repository());
+        
+        // When
+        boolean result = webhookService.processIssueEvent(issueEvent);
+        
+        // Then
+        assertFalse(result);
+        verify(githubIssueScannerService, never()).processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Should return false for issue event without repository")
+    void shouldReturnFalseForIssueEventWithoutRepository() {
+        // Given
+        GitHubIssueEvent issueEvent = new GitHubIssueEvent();
+        issueEvent.setIssue(new GitHubIssueEvent.Issue());
+        issueEvent.setRepository(null);
+        
+        // When
+        boolean result = webhookService.processIssueEvent(issueEvent);
+        
+        // Then
+        assertFalse(result);
+        verify(githubIssueScannerService, never()).processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Should skip pull request events")
+    void shouldSkipPullRequestEvents() {
+        // Given
+        GitHubIssueEvent issueEvent = createValidIssueEvent();
+        GitHubIssueEvent.PullRequest pullRequest = new GitHubIssueEvent.PullRequest();
+        pullRequest.setUrl("https://api.github.com/repos/owner/test-repo/pulls/42");
+        issueEvent.getIssue().setPullRequest(pullRequest);
+        
+        // When
+        boolean result = webhookService.processIssueEvent(issueEvent);
+        
+        // Then
+        assertTrue(result); // Returns true but doesn't process
+        verify(githubIssueScannerService, never()).processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Should skip closed issue events")
+    void shouldSkipClosedIssueEvents() {
+        // Given
+        GitHubIssueEvent issueEvent = createValidIssueEvent();
+        issueEvent.setAction("closed");
+        issueEvent.getIssue().setState("closed");
+        
+        // When
+        boolean result = webhookService.processIssueEvent(issueEvent);
+        
+        // Then
+        assertTrue(result); // Returns true but doesn't process
+        verify(githubIssueScannerService, never()).processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Should skip non-opened/reopened actions")
+    void shouldSkipNonOpenedReopenedActions() {
+        // Given
+        GitHubIssueEvent issueEvent = createValidIssueEvent();
+        issueEvent.setAction("edited");
+        
+        // When
+        boolean result = webhookService.processIssueEvent(issueEvent);
+        
+        // Then
+        assertTrue(result); // Returns true but doesn't process
+        verify(githubIssueScannerService, never()).processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Should handle issue with no bounty found")
+    void shouldHandleIssueWithNoBountyFound() {
+        // Given
+        GitHubIssueEvent issueEvent = createValidIssueEvent();
+        when(githubIssueScannerService.processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(null); // No bounty found
+        
+        // When
+        boolean result = webhookService.processIssueEvent(issueEvent);
+        
+        // Then
+        assertTrue(result); // Returns true even if no bounty found
+        verify(githubIssueScannerService, times(1)).processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Should handle exception during issue processing")
+    void shouldHandleExceptionDuringIssueProcessing() {
+        // Given
+        GitHubIssueEvent issueEvent = createValidIssueEvent();
+        when(githubIssueScannerService.processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("Processing error"));
+        
+        // When
+        boolean result = webhookService.processIssueEvent(issueEvent);
+        
+        // Then
+        assertFalse(result);
+        verify(githubIssueScannerService, times(1)).processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Should extract repository URL correctly")
+    void shouldExtractRepositoryUrlCorrectly() {
+        // Given
+        GitHubIssueEvent issueEvent = createValidIssueEvent();
+        when(githubIssueScannerService.processIssueFromWebhook(
+                anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(null);
+        
+        // When
+        webhookService.processIssueEvent(issueEvent);
+        
+        // Then
+        verify(githubIssueScannerService).processIssueFromWebhook(
+                eq("https://github.com/owner/test-repo"),
+                anyString(), anyString(), anyString());
     }
 }
 

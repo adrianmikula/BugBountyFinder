@@ -1,11 +1,15 @@
 package com.bugbounty.webhook.service;
 
+import com.bugbounty.bounty.domain.Bounty;
+import com.bugbounty.bounty.service.GitHubIssueScannerService;
 import com.bugbounty.cve.service.CommitAnalysisService;
 import com.bugbounty.cve.service.CodebaseIndexService;
+import com.bugbounty.cve.service.IssueAnalysisService;
 import com.bugbounty.repository.domain.Repository;
 import com.bugbounty.repository.entity.RepositoryEntity;
 import com.bugbounty.repository.repository.RepositoryRepository;
 import com.bugbounty.repository.service.RepositoryService;
+import com.bugbounty.webhook.dto.GitHubIssueEvent;
 import com.bugbounty.webhook.dto.GitHubPushEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +39,8 @@ public class GitHubWebhookService {
     private final RepositoryRepository repositoryRepository;
     private final CommitAnalysisService commitAnalysisService;
     private final CodebaseIndexService codebaseIndexService;
+    private final GitHubIssueScannerService githubIssueScannerService;
+    private final IssueAnalysisService issueAnalysisService;
     
     @Value("${app.repository.clone.base-path:./repos}")
     private String basePath;
@@ -200,6 +206,81 @@ public class GitHubWebhookService {
             } catch (Exception e) {
                 log.error("Error analyzing commit {} for CVEs", commit.getId(), e);
             }
+        }
+    }
+    
+    /**
+     * Process a GitHub issue event (opened, closed, etc.).
+     * This is called in real-time when an issue is created or updated.
+     * 
+     * @param issueEvent The issue event from GitHub webhook
+     * @return true if event was processed successfully, false otherwise
+     */
+    public boolean processIssueEvent(GitHubIssueEvent issueEvent) {
+        if (issueEvent == null || issueEvent.getIssue() == null || issueEvent.getRepository() == null) {
+            log.warn("Invalid issue event: missing issue or repository information");
+            return false;
+        }
+        
+        // Only process issues (not pull requests)
+        if (issueEvent.isPullRequest()) {
+            log.debug("Skipping pull request event");
+            return true; // Not an error, just not what we're looking for
+        }
+        
+        // Only process "opened" and "reopened" actions for open issues
+        String action = issueEvent.getAction();
+        if (!("opened".equals(action) || "reopened".equals(action))) {
+            log.debug("Skipping issue event with action: {}", action);
+            return true; // Not an error, just not what we're looking for
+        }
+        
+        if (!issueEvent.isOpen()) {
+            log.debug("Skipping closed issue");
+            return true; // Not an error
+        }
+        
+        String repositoryUrl = issueEvent.getRepositoryUrl();
+        Integer issueNumber = issueEvent.getIssue().getNumber();
+        String issueTitle = issueEvent.getIssue().getTitle();
+        String issueBody = issueEvent.getIssue().getBody();
+        
+        log.info("Processing issue event - Repository: {}, Issue #{}: {}", 
+                issueEvent.getRepository().getFullName(),
+                issueNumber,
+                issueTitle);
+        
+        try {
+            // Process the issue through the scanner service
+            // This will extract bounty amounts, save to database, and enqueue for triage
+            Bounty bounty = githubIssueScannerService.processIssueFromWebhook(
+                    repositoryUrl,
+                    String.valueOf(issueNumber),
+                    issueTitle,
+                    issueBody
+            );
+            
+            if (bounty != null) {
+                log.info("Successfully processed bounty from issue #{} in {}", 
+                        issueNumber, repositoryUrl);
+                
+                // Trigger issue analysis to understand root cause and generate fix
+                log.info("Triggering issue analysis for bounty from issue #{}", issueNumber);
+                issueAnalysisService.analyzeIssue(bounty)
+                        .doOnNext(finding -> log.info("Issue analysis completed for issue #{} - Root cause confidence: {}", 
+                                issueNumber, finding.getRootCauseConfidence()))
+                        .doOnError(error -> log.error("Error analyzing issue #{}", issueNumber, error))
+                        .subscribe();
+                
+                return true;
+            } else {
+                log.debug("No bounty found in issue #{}", issueNumber);
+                return true; // Not an error, just no bounty
+            }
+        } catch (Exception e) {
+            log.error("Error processing issue event for repository: {}, issue #{}", 
+                    issueEvent.getRepository().getFullName(), issueNumber, e);
+            return false;
         }
     }
 }

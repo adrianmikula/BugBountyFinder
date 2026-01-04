@@ -76,16 +76,18 @@ app:
     platforms:
       algora:
         api-url: https://api.algora.io/v1
-        api-key: ${ALGORA_API_KEY:}  # Optional: API key for Algora authentication
+        api-key: ${ALGORA_API_KEY:}  # Required: Get by logging into algora.io and generating API key
         rate-limit-per-minute: 60
       polar:
         api-url: https://api.polar.sh
-        api-key: ${POLAR_API_KEY:}  # Optional: API key for Polar.sh authentication
+        api-key: ${POLAR_API_KEY:}  # Required: Get by logging into polar.sh and generating API key
         rate-limit-per-minute: 60
       github:
         api-url: https://api.github.com
         api-token: ${GITHUB_API_TOKEN:}  # Optional: GitHub Personal Access Token for higher rate limits
         rate-limit-per-hour: 5000
+        # Note: Bounties are discovered via Algora/Polar.sh, not by scanning GitHub issues
+        # GitHub API is used to fetch issue details after bounties are discovered
   repository:
     clone:
       base-path: ${REPO_CLONE_PATH:./repos}
@@ -132,6 +134,14 @@ resilience4j:
         automaticTransitionFromOpenToHalfOpenEnabled: true
         waitDurationInOpenState: 10s
         failureRateThreshold: 50
+      githubApi:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
   ratelimiter:
     instances:
       algoraApi:
@@ -140,6 +150,10 @@ resilience4j:
         timeoutDuration: 5s
       polarApi:
         limitForPeriod: 60
+        limitRefreshPeriod: 60s
+        timeoutDuration: 5s
+      githubApi:
+        limitForPeriod: 80  # GitHub allows 5000 requests/hour, so ~83 requests/minute
         limitRefreshPeriod: 60s
         timeoutDuration: 5s
 

@@ -1,5 +1,6 @@
 package com.bugbounty.webhook.controller;
 
+import com.bugbounty.webhook.dto.GitHubIssueEvent;
 import com.bugbounty.webhook.dto.GitHubPushEvent;
 import com.bugbounty.webhook.service.GitHubWebhookService;
 import com.bugbounty.webhook.service.WebhookSignatureService;
@@ -37,6 +38,7 @@ class GitHubWebhookControllerTest {
     private ObjectMapper objectMapper;
 
     private String validPayload;
+    private String validIssuePayload;
 
     @BeforeEach
     void setUp() {
@@ -58,6 +60,28 @@ class GitHubWebhookControllerTest {
                     "clone_url": "https://github.com/owner/test-repo.git"
                   },
                   "commits": []
+                }
+                """;
+        
+        validIssuePayload = """
+                {
+                  "action": "opened",
+                  "issue": {
+                    "id": 123456,
+                    "number": 42,
+                    "title": "Fix security vulnerability - $500 bounty",
+                    "body": "This issue has a $500 bounty attached.",
+                    "state": "open",
+                    "created_at": "2024-01-01T12:00:00Z",
+                    "updated_at": "2024-01-01T12:00:00Z"
+                  },
+                  "repository": {
+                    "id": 789012,
+                    "name": "test-repo",
+                    "full_name": "owner/test-repo",
+                    "clone_url": "https://github.com/owner/test-repo.git",
+                    "html_url": "https://github.com/owner/test-repo"
+                  }
                 }
                 """;
     }
@@ -246,6 +270,126 @@ class GitHubWebhookControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validPayload))
                 .andExpect(status().isInternalServerError());
+    }
+
+    // Issue Event Tests
+
+    @Test
+    @DisplayName("Should handle valid issue event")
+    void shouldHandleValidIssueEvent() throws Exception {
+        // Given
+        when(signatureService.verifySignature(anyString(), anyString())).thenReturn(true);
+        when(webhookService.processIssueEvent(any(GitHubIssueEvent.class))).thenReturn(true);
+        
+        // When & Then
+        mockMvc.perform(post("/api/webhooks/github/issues")
+                        .header("X-GitHub-Event", "issues")
+                        .header("X-Hub-Signature-256", "sha256=valid_signature")
+                        .header("X-GitHub-Delivery", "test-delivery-id")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validIssuePayload))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Webhook processed successfully"));
+    }
+
+    @Test
+    @DisplayName("Should reject invalid signature for issue event")
+    void shouldRejectInvalidSignatureForIssueEvent() throws Exception {
+        // Given
+        when(signatureService.verifySignature(anyString(), anyString())).thenReturn(false);
+        
+        // When & Then
+        mockMvc.perform(post("/api/webhooks/github/issues")
+                        .header("X-GitHub-Event", "issues")
+                        .header("X-Hub-Signature-256", "sha256=invalid_signature")
+                        .header("X-GitHub-Delivery", "test-delivery-id")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validIssuePayload))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().string("Invalid signature"));
+    }
+
+    @Test
+    @DisplayName("Should reject non-issues events")
+    void shouldRejectNonIssuesEvents() throws Exception {
+        // When & Then
+        mockMvc.perform(post("/api/webhooks/github/issues")
+                        .header("X-GitHub-Event", "push")
+                        .header("X-Hub-Signature-256", "sha256=valid_signature")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validIssuePayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Expected 'issues' event")));
+    }
+
+    @Test
+    @DisplayName("Should handle issue event processing failure")
+    void shouldHandleIssueEventProcessingFailure() throws Exception {
+        // Given
+        when(signatureService.verifySignature(anyString(), anyString())).thenReturn(true);
+        when(webhookService.processIssueEvent(any(GitHubIssueEvent.class))).thenReturn(false);
+        
+        // When & Then
+        mockMvc.perform(post("/api/webhooks/github/issues")
+                        .header("X-GitHub-Event", "issues")
+                        .header("X-Hub-Signature-256", "sha256=valid_signature")
+                        .header("X-GitHub-Delivery", "test-delivery-id")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validIssuePayload))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content().string("Failed to process webhook"));
+    }
+
+    @Test
+    @DisplayName("Should handle malformed JSON payload for issue event")
+    void shouldHandleMalformedJsonPayloadForIssueEvent() throws Exception {
+        // Given
+        when(signatureService.verifySignature(anyString(), anyString())).thenReturn(true);
+        
+        // When & Then
+        mockMvc.perform(post("/api/webhooks/github/issues")
+                        .header("X-GitHub-Event", "issues")
+                        .header("X-Hub-Signature-256", "sha256=valid_signature")
+                        .header("X-GitHub-Delivery", "test-delivery-id")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ invalid json }"))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    @DisplayName("Should handle exception during issue event processing")
+    void shouldHandleExceptionDuringIssueEventProcessing() throws Exception {
+        // Given
+        when(signatureService.verifySignature(anyString(), anyString())).thenReturn(true);
+        when(webhookService.processIssueEvent(any(GitHubIssueEvent.class)))
+                .thenThrow(new RuntimeException("Processing error"));
+        
+        // When & Then
+        mockMvc.perform(post("/api/webhooks/github/issues")
+                        .header("X-GitHub-Event", "issues")
+                        .header("X-Hub-Signature-256", "sha256=valid_signature")
+                        .header("X-GitHub-Delivery", "test-delivery-id")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validIssuePayload))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    @DisplayName("Should route issue events through unified webhook endpoint")
+    void shouldRouteIssueEventsThroughUnifiedWebhookEndpoint() throws Exception {
+        // Given
+        when(signatureService.verifySignature(anyString(), anyString())).thenReturn(true);
+        when(webhookService.processIssueEvent(any(GitHubIssueEvent.class))).thenReturn(true);
+        
+        // When & Then
+        mockMvc.perform(post("/api/webhooks/github")
+                        .header("X-GitHub-Event", "issues")
+                        .header("X-Hub-Signature-256", "sha256=valid_signature")
+                        .header("X-GitHub-Delivery", "test-delivery-id")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validIssuePayload))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Webhook processed successfully"));
     }
 }
 

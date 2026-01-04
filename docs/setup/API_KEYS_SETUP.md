@@ -67,21 +67,21 @@ GITHUB_WEBHOOK_SECRET=your-generated-secret-here
 
 ---
 
-### 3. Algora API Key 🔑 Optional (if required)
+### 3. Algora API Key 🔑 Required
 
 **Purpose**: Authenticate requests to Algora bug bounty platform
 
-**Status**: Currently, Algora API may work without authentication, but API keys may be required for:
-- Higher rate limits
-- Access to premium features
-- Better reliability
+**Why needed**: 
+- Algora is the primary source for discovering bounties linked to GitHub issues
+- Authentication is required to access the API
+- Without authentication, you cannot discover bounties from Algora
 
-**How to get** (if available):
+**How to get**:
 1. Visit: https://algora.io
-2. Sign up or log in
-3. Navigate to **Settings** → **API Keys**
+2. **Sign up or log in** to create an account
+3. Navigate to **Settings** → **API Keys** (or **Developer Settings**)
 4. Generate a new API key
-5. Copy the key
+5. Copy the key (keep it secure!)
 
 **Set environment variable**:
 ```bash
@@ -93,25 +93,28 @@ export ALGORA_API_KEY="your-algora-api-key"
 ALGORA_API_KEY=your-algora-api-key
 ```
 
-**Note**: If Algora doesn't require authentication, you can leave this empty.
+**Important**: 
+- You need to **log in** to Algora to get an API key
+- The API key is required to discover bounties
+- Bounties from Algora link to GitHub issues, which is how we identify which issues have bounties
 
 ---
 
-### 4. Polar.sh API Key 🔑 Optional (if required)
+### 4. Polar.sh API Key 🔑 Required
 
 **Purpose**: Authenticate requests to Polar.sh PR bounty platform
 
-**Status**: Currently, Polar.sh API may work without authentication, but API keys may be required for:
-- Higher rate limits
-- Access to premium features
-- Better reliability
+**Why needed**:
+- Polar.sh is a primary source for discovering bounties linked to GitHub issues
+- Authentication is required to access the API
+- Without authentication, you cannot discover bounties from Polar.sh
 
-**How to get** (if available):
+**How to get**:
 1. Visit: https://polar.sh
-2. Sign up or log in
+2. **Sign up or log in** to create an account
 3. Navigate to **Settings** → **API** or **Developer Settings**
 4. Generate a new API key or access token
-5. Copy the key
+5. Copy the key (keep it secure!)
 
 **Set environment variable**:
 ```bash
@@ -123,7 +126,10 @@ export POLAR_API_KEY="your-polar-api-key"
 POLAR_API_KEY=your-polar-api-key
 ```
 
-**Note**: If Polar.sh doesn't require authentication, you can leave this empty.
+**Important**:
+- You need to **log in** to Polar.sh to get an API key
+- The API key is required to discover bounties
+- Bounties from Polar.sh link to GitHub issues, which is how we identify which issues have bounties
 
 ---
 
@@ -192,12 +198,14 @@ export OLLAMA_MODEL="deepseek-coder:6.7b"
 
 - [ ] Generate GitHub Personal Access Token
 - [ ] Generate GitHub Webhook Secret
-- [ ] (Optional) Get Algora API Key (if required)
-- [ ] (Optional) Get Polar.sh API Key (if required)
+- [ ] **Sign up and get Algora API Key** (Required - log in to algora.io)
+- [ ] **Sign up and get Polar.sh API Key** (Required - log in to polar.sh)
 - [ ] (Recommended) Get NVD API Key
 - [ ] Install and configure Ollama
 - [ ] Create `.env` file with all keys
 - [ ] Test configuration
+
+**Note**: Algora and Polar.sh require you to create accounts and log in to obtain API keys. These platforms are the source of bounty information - they link bounties to GitHub issues.
 
 ---
 

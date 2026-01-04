@@ -81,6 +81,11 @@ description = "Run only component tests (requires Docker)"
 run_windows = "powershell -File scripts/gradle-test.ps1 -ComponentOnly"
 run = "bash -c 'if [ -f gradlew ]; then ./gradlew test --tests \"com.bugbounty.component.*\"; else gradle test --tests \"com.bugbounty.component.*\"; fi'"
 
+[tasks.test-e2e]
+description = "Run only end-to-end tests (requires Docker and database)"
+run_windows = "powershell -File scripts/gradle-test.ps1 -E2EOnly"
+run = "bash -c 'if [ -f gradlew ]; then ./gradlew test --tests \"com.bugbounty.e2e.*\"; else gradle test --tests \"com.bugbounty.e2e.*\"; fi'"
+
 [tasks.coverage]
 description = "Generate code coverage report and open in browser (or print summary)"
 run_windows = "powershell -File scripts/gradle-coverage.ps1"

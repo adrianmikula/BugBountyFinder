@@ -48,6 +48,9 @@ class CVEMonitoringServiceTest {
     @Mock
     private RepositoryRepository repositoryRepository;
 
+    @Mock
+    private CVECatalogService cveCatalogService;
+
     @InjectMocks
     private CVEMonitoringService monitoringService;
 
@@ -103,6 +106,8 @@ class CVEMonitoringServiceTest {
                 .thenReturn(false);
         when(repositoryScanningService.scanRepositoryForCVE(anyString(), anyString()))
                 .thenReturn(reactor.core.publisher.Mono.empty());
+        when(cveCatalogService.processCVEForCatalog(any(CVE.class)))
+                .thenReturn(reactor.core.publisher.Flux.empty());
 
         // When
         var result = monitoringService.processNewCVE(cve)
@@ -133,6 +138,8 @@ class CVEMonitoringServiceTest {
                 .build();
 
         when(cveRepository.existsByCveId("CVE-2024-1234")).thenReturn(true);
+        lenient().when(cveCatalogService.processCVEForCatalog(any(CVE.class)))
+                .thenReturn(reactor.core.publisher.Flux.empty());
 
         // When
         var result = monitoringService.processNewCVE(cve)
@@ -171,7 +178,9 @@ class CVEMonitoringServiceTest {
         when(languageMappingService.extractLanguages(any(), any())).thenReturn(
                 java.util.Set.of()
         );
-        when(repositoryRepository.findAll()).thenReturn(Arrays.asList());
+        lenient().when(repositoryRepository.findAll()).thenReturn(Arrays.asList());
+        lenient().when(cveCatalogService.processCVEForCatalog(any(CVE.class)))
+                .thenReturn(reactor.core.publisher.Flux.empty());
 
         // When
         var result = monitoringService.processNewCVE(cve)
@@ -209,7 +218,9 @@ class CVEMonitoringServiceTest {
         when(languageMappingService.extractLanguages(any(), any())).thenReturn(
                 java.util.Set.of("Java")
         );
-        when(repositoryRepository.findAll()).thenReturn(Arrays.asList());
+        lenient().when(repositoryRepository.findAll()).thenReturn(Arrays.asList());
+        lenient().when(cveCatalogService.processCVEForCatalog(any(CVE.class)))
+                .thenReturn(reactor.core.publisher.Flux.empty());
 
         // When
         monitoringService.handleCVEWebhook(cve);
@@ -293,6 +304,8 @@ class CVEMonitoringServiceTest {
                 .thenReturn(false);
         when(repositoryScanningService.scanRepositoryForCVE(anyString(), anyString()))
                 .thenReturn(reactor.core.publisher.Mono.empty());
+        when(cveCatalogService.processCVEForCatalog(any(CVE.class)))
+                .thenReturn(reactor.core.publisher.Flux.empty());
 
         // When
         var result = monitoringService.processNewCVE(cve)

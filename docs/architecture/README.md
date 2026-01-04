@@ -42,13 +42,16 @@ Bug Bounty Finder is an automated bug bounty and PR bounty hunting system built 
 
 1. **Bounty Domain** (`com.bugbounty.bounty`)
    - Manages bug bounty discovery, filtering, and triage
-   - Integrates with Algora and Polar.sh platforms
+   - Integrates with Algora, Polar.sh, and GitHub platforms
+   - **GitHub Issue Scanning**: Scans repositories for issues tagged with dollar amounts (Bounty-per-Issue model)
    - LLM-powered filtering for bounty evaluation
+   - See [GitHub Issue Scanning Architecture](GITHUB_ISSUE_SCANNING.md) for details
 
 2. **CVE Domain** (`com.bugbounty.cve`)
-   - Monitors NVD for new security vulnerabilities
-   - Triggers repository scans when relevant CVEs are detected
-   - Language-aware vulnerability matching
+   - **Status**: Modules kept in place for future use
+   - Current implementation scans Git commits for existing CVEs (not aligned with requirements)
+   - Future: Will integrate nuclei and scan actual websites/endpoints for brand new CVEs
+   - See [CVE Modules Future Use](CVE_MODULES_FUTURE.md) for details
 
 3. **Repository Domain** (`com.bugbounty.repository`)
    - Manages GitHub repository cloning and updates
@@ -75,7 +78,21 @@ Bug Bounty Finder is an automated bug bounty and PR bounty hunting system built 
 
 - **Algora API**: Bounty discovery platform
 - **Polar.sh API**: PR bounty platform
-- **NVD API**: CVE vulnerability database
-- **GitHub API**: Repository metadata and webhooks
+- **GitHub API**: 
+  - Repository metadata and webhooks
+  - **Issue scanning** for bounties tagged with dollar amounts
+- **NVD API**: CVE vulnerability database (for future CVE scanning implementation)
 - **Ollama**: Local LLM inference for intelligent filtering
+
+## Current Focus
+
+The system currently implements the **"Bounty-per-Issue"** model:
+- Scans GitHub repositories for issues with dollar amounts
+- Polls Algora and Polar.sh for platform-based bounties
+- Uses LLM to triage and prioritize bounties
+
+The **CVE scanning** modules are kept in place but will be repurposed in the future to:
+- Scan actual websites/endpoints (not Git commits)
+- Use tools like nuclei for vulnerability scanning
+- Target brand new CVEs before they're widely known
 

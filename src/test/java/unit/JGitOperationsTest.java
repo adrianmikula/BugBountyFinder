@@ -115,11 +115,13 @@ class JGitOperationsTest {
 
         // Then
         assertNotNull(files);
-        assertTrue(files.length >= 2);
-        // Files are returned as relative paths from the directoryPath
+        assertEquals(2, files.length, "Should find 2 files: file1.txt and nested/file2.txt");
+        // Files are returned as relative paths from the directoryPath (subdir)
+        // So file1.txt is at subdir/file1.txt relative to tempDir, but relative to subdir it's just file1.txt
+        // And nested/file2.txt is at subdir/nested/file2.txt relative to tempDir, but relative to subdir it's nested/file2.txt
         java.util.List<String> fileList = java.util.Arrays.asList(files);
-        assertTrue(fileList.contains("file1.txt") || fileList.contains("subdir/file1.txt"));
-        assertTrue(fileList.contains("nested/file2.txt") || fileList.contains("subdir/nested/file2.txt") || fileList.contains("file2.txt"));
+        assertTrue(fileList.contains("file1.txt"), "Should contain file1.txt (relative to subdir)");
+        assertTrue(fileList.contains("nested/file2.txt"), "Should contain nested/file2.txt (relative to subdir)");
     }
 
     @Test

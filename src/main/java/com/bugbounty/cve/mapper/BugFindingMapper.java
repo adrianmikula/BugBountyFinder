@@ -7,7 +7,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -24,6 +26,14 @@ public class BugFindingMapper {
             return BugFindingEntity.builder()
                     .id(finding.getId())
                     .repositoryUrl(finding.getRepositoryUrl())
+                    .issueId(finding.getIssueId())
+                    .issueTitle(finding.getIssueTitle())
+                    .issueDescription(finding.getIssueDescription())
+                    .rootCauseAnalysis(finding.getRootCauseAnalysis())
+                    .rootCauseConfidence(finding.getRootCauseConfidence())
+                    .affectedCode(finding.getAffectedCode() != null 
+                            ? objectMapper.writeValueAsString(finding.getAffectedCode()) 
+                            : null)
                     .commitId(finding.getCommitId())
                     .cveId(finding.getCveId())
                     .status(mapStatus(finding.getStatus()))
@@ -65,9 +75,23 @@ public class BugFindingMapper {
                 );
             }
             
+            Map<String, String> affectedCode = null;
+            if (entity.getAffectedCode() != null && !entity.getAffectedCode().isEmpty()) {
+                affectedCode = objectMapper.readValue(
+                        entity.getAffectedCode(),
+                        new TypeReference<Map<String, String>>() {}
+                );
+            }
+            
             return BugFinding.builder()
                     .id(entity.getId())
                     .repositoryUrl(entity.getRepositoryUrl())
+                    .issueId(entity.getIssueId())
+                    .issueTitle(entity.getIssueTitle())
+                    .issueDescription(entity.getIssueDescription())
+                    .rootCauseAnalysis(entity.getRootCauseAnalysis())
+                    .rootCauseConfidence(entity.getRootCauseConfidence())
+                    .affectedCode(affectedCode)
                     .commitId(entity.getCommitId())
                     .cveId(entity.getCveId())
                     .status(mapStatus(entity.getStatus()))

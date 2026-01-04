@@ -22,11 +22,27 @@ public class BugFinding {
     private UUID id = UUID.randomUUID();
     
     private String repositoryUrl;
+    
+    // Issue-related fields (new)
+    private String issueId; // GitHub issue number
+    private String issueTitle;
+    private String issueDescription;
+    
+    // Legacy CVE fields (kept for backward compatibility, may be deprecated)
     private String commitId;
     private String cveId;
+    
     private BugFindingStatus status;
-    private Double presenceConfidence; // 0.0-1.0
-    private Double fixConfidence; // 0.0-1.0
+    
+    // Root cause analysis fields (new)
+    private String rootCauseAnalysis; // Detailed explanation of root cause
+    private Double rootCauseConfidence; // 0.0-1.0 - confidence in understanding root cause
+    private Map<String, String> affectedCode; // Map of file -> code sections/methods
+    
+    // Legacy confidence fields (kept for backward compatibility)
+    private Double presenceConfidence; // 0.0-1.0 (legacy - for CVE detection)
+    private Double fixConfidence; // 0.0-1.0 - confidence that fix solves the issue
+    
     private String commitDiff;
     private List<String> affectedFiles;
     private String recommendedFix;

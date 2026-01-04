@@ -4,8 +4,11 @@ Automated bug bounty and PR bounty hunting system built with Spring Boot 3.x.
 
 ## Features
 
-- **Bounty Polling**: Automatically polls Algora and Polar.sh for new bounties
-- **GitHub Webhooks**: Real-time notifications when commits are pushed to repositories
+- **Bounty Discovery**: Polls Algora and Polar.sh platforms to discover bounties (requires login/API keys)
+- **GitHub Issue Analysis**: Analyzes GitHub issues linked from Algora/Polar.sh bounties to understand bugs
+- **Root Cause Analysis**: Uses LLM to identify root causes of reported bugs
+- **Fix Generation**: Automatically generates code fixes for discovered bounties
+- **GitHub Push Webhooks**: Real-time notifications when commits are pushed to repositories
 - **Repository Management**: Clones and manages GitHub repositories via REST API
 - **Repository API**: Add, list, and manage repositories through `/api/repositories` endpoints
 - **LLM Integration**: Uses Ollama for local LLM inference (cost-effective)
@@ -108,10 +111,13 @@ Before running the application, you need to configure API keys for external serv
    ```
 
 2. **Set up API keys** - See [API Keys Setup Guide](docs/setup/API_KEYS_SETUP.md) for detailed instructions:
-   - **GitHub**: Personal Access Token (recommended) and Webhook Secret (required)
+   - **Algora**: API Key (Required - sign up and log in at algora.io to get API key)
+   - **Polar.sh**: API Key (Required - sign up and log in at polar.sh to get API key)
+   - **GitHub**: Personal Access Token (recommended) and Webhook Secret (required for webhooks)
    - **NVD**: API Key (optional but recommended for better rate limits)
-   - **Algora/Polar.sh**: API Keys (optional, if required by platform)
    - **Ollama**: No API key needed (local service)
+
+**Important**: Bounties are discovered by polling Algora and Polar.sh platforms (not by scanning GitHub). You must create accounts and get API keys from these platforms.
 
 3. **Edit `.env` file** with your actual API keys
 
@@ -315,11 +321,13 @@ For testing, we recommend repositories with high commit activity and active bug 
 ### ✅ Completed
 - Project structure and configuration
 - Domain models (Bounty, Repository) with tests
-- BountyPollingService with tests
+- BountyPollingService with tests (Algora, Polar, GitHub)
+- **GitHub Issue Scanning** - Scans repositories for issues with dollar amounts
+- **GitHub Issue Webhooks** - Real-time bounty detection when issues are created
 - RepositoryService with tests
 - **Repository Management API** - Add, list, and manage repositories via REST endpoints
 - JPA entities and repositories
-- API client implementations (Algora, Polar)
+- API client implementations (Algora, Polar, GitHub)
 - Triage queue service with Redis
 - LLM-based bounty filtering service
 - **Component tests with Spring Boot Test + TestContainers**

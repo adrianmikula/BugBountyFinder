@@ -23,6 +23,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import reactor.test.StepVerifier;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -77,9 +78,10 @@ class CommitAnalysisServiceTest {
     }
 
     @SuppressWarnings("unchecked")
-    private void mockChatResponse(String jsonContent) {
+    private ChatResponse createMockChatResponse(String jsonContent) {
         try {
-            lenient().when(assistantMessage.getContent()).thenReturn(jsonContent);
+            AssistantMessage msg = mock(AssistantMessage.class);
+            lenient().when(msg.getContent()).thenReturn(jsonContent);
             
             java.lang.reflect.Method getResultMethod = ChatResponse.class.getMethod("getResult");
             Class<?> resultType = getResultMethod.getReturnType();
@@ -87,16 +89,23 @@ class CommitAnalysisServiceTest {
             Object resultMock = mock(resultType, (org.mockito.stubbing.Answer<Object>) invocation -> {
                 java.lang.reflect.Method method = invocation.getMethod();
                 if ("getOutput".equals(method.getName())) {
-                    return assistantMessage;
+                    return msg;
                 }
                 return null;
             });
             
-            lenient().doReturn(resultMock).when(chatResponse).getResult();
-            lenient().when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+            ChatResponse response = mock(ChatResponse.class);
+            // Use doReturn to work around type issues with Generation
+            lenient().doReturn(resultMock).when(response).getResult();
+            return response;
         } catch (Exception e) {
             throw new RuntimeException("Failed to mock ChatResponse", e);
         }
+    }
+    
+    private void mockChatResponse(String jsonContent) {
+        ChatResponse response = createMockChatResponse(jsonContent);
+        lenient().when(chatClient.call(any(Prompt.class))).thenReturn(response);
     }
 
     @Test
@@ -143,6 +152,10 @@ class CommitAnalysisServiceTest {
 
         when(codebaseIndexService.getIndex("https://github.com/owner/repo", "Java"))
                 .thenReturn(Optional.of(index));
+        
+        // Mock repository service for file contents (not cloned, so returns empty map)
+        when(repositoryService.isCloned(any(com.bugbounty.repository.domain.Repository.class)))
+                .thenReturn(false);
 
         // Mock initial analysis - no CVEs detected
         String initialResponse = "[]";
@@ -159,7 +172,8 @@ class CommitAnalysisServiceTest {
 
         // Then
         StepVerifier.create(result)
-                .verifyComplete();
+                .expectComplete()
+                .verify(Duration.ofSeconds(5));
 
         verify(chatClient, atLeastOnce()).call(any(Prompt.class));
     }
@@ -185,11 +199,14 @@ class CommitAnalysisServiceTest {
 
         when(codebaseIndexService.getIndex("https://github.com/owner/repo", "Java"))
                 .thenReturn(Optional.of(index));
+        
+        // Mock repository service for file contents (not cloned, so returns empty map)
+        when(repositoryService.isCloned(any(com.bugbounty.repository.domain.Repository.class)))
+                .thenReturn(false);
 
         // Mock initial analysis - CVE detected
         String initialResponse = "[\"CVE-2024-1234\"]";
-        mockChatResponse(initialResponse);
-
+        
         // Mock individual CVE analysis
         String individualResponse = """
                 {
@@ -201,7 +218,15 @@ class CommitAnalysisServiceTest {
                   "notes": "analysis notes"
                 }
                 """;
-        mockChatResponse(individualResponse);
+        
+        // Setup mocks to return different responses for different calls
+        // First call: initial analysis, Second call: individual CVE analysis
+        ChatResponse initialResponseMock = createMockChatResponse(initialResponse);
+        ChatResponse individualResponseMock = createMockChatResponse(individualResponse);
+        
+        lenient().when(chatClient.call(any(Prompt.class)))
+                .thenReturn(initialResponseMock)  // First call
+                .thenReturn(individualResponseMock);  // Second call
 
         com.bugbounty.cve.entity.BugFindingEntity savedEntity = 
                 com.bugbounty.cve.entity.BugFindingEntity.builder()
@@ -231,7 +256,8 @@ class CommitAnalysisServiceTest {
         // Then
         StepVerifier.create(result)
                 .expectNextCount(1)
-                .verifyComplete();
+                .expectComplete()
+                .verify(Duration.ofSeconds(5));
 
         verify(bugFindingRepository, times(1)).save(any());
     }

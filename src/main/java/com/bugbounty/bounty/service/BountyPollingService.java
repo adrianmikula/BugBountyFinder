@@ -8,6 +8,8 @@ import com.bugbounty.bounty.triage.FilterResult;
 import com.bugbounty.bounty.triage.TriageQueueService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -20,12 +22,40 @@ public class BountyPollingService {
 
     private final AlgoraApiClient algoraApiClient;
     private final PolarApiClient polarApiClient;
+    // Note: GitHubIssueScannerService is deprecated - bounties come from Algora/Polar.sh
+    @SuppressWarnings("unused")
+    private final GitHubIssueScannerService githubIssueScannerService;
     private final BountyRepository bountyRepository;
     private final BountyMapper bountyMapper;
     private final BountyFilteringService filteringService;
     private final TriageQueueService triageQueueService;
 
     private static final BigDecimal DEFAULT_MINIMUM_AMOUNT = new BigDecimal("50.00");
+    
+    @Value("${app.bounty.polling.enabled:true}")
+    private boolean pollingEnabled;
+    
+    @Value("${app.bounty.polling.interval-seconds:300}")
+    private long pollingIntervalSeconds;
+    
+    /**
+     * Scheduled task to poll all platforms (Algora, Polar, GitHub) for new bounties.
+     * Runs every 5 minutes by default (configurable via application.yml).
+     * Note: fixedDelayString expects milliseconds, so we multiply seconds by 1000.
+     */
+    @Scheduled(fixedDelayString = "${app.bounty.polling.interval-seconds:300}000", initialDelay = 30000)
+    public void scheduledPollAllPlatforms() {
+        if (!pollingEnabled) {
+            log.debug("Bounty polling is disabled");
+            return;
+        }
+        
+        log.info("Starting scheduled bounty polling from all platforms");
+        pollAllPlatforms()
+                .doOnComplete(() -> log.info("Scheduled bounty polling completed"))
+                .doOnError(error -> log.error("Error during scheduled bounty polling", error))
+                .subscribe();
+    }
 
     public Flux<Bounty> pollAlgora() {
         return pollAlgora(DEFAULT_MINIMUM_AMOUNT);
@@ -100,10 +130,30 @@ public class BountyPollingService {
     public Flux<Bounty> pollAllPlatforms(BigDecimal minimumAmount) {
         log.debug("Polling all platforms for new bounties");
         
+        // Note: Bounties are discovered via Algora and Polar.sh platforms
+        // These platforms link bounties to GitHub issues
+        // We do NOT scan GitHub issues directly for dollar amounts
         return Flux.merge(
                 pollAlgora(minimumAmount),
                 pollPolar(minimumAmount)
         );
+    }
+    
+    /**
+     * Poll GitHub repositories for issues with bounties.
+     * 
+     * @deprecated Bounties should be discovered via Algora/Polar.sh platforms, not by scanning GitHub.
+     * This method is kept for backward compatibility but should not be used.
+     */
+    @Deprecated
+    public Flux<Bounty> pollGitHub(BigDecimal minimumAmount) {
+        log.warn("pollGitHub() is deprecated. Bounties should be discovered via Algora/Polar.sh platforms.");
+        return Flux.empty(); // Disabled - use Algora/Polar.sh instead
+    }
+    
+    @Deprecated
+    public Flux<Bounty> pollGitHub() {
+        return pollGitHub(DEFAULT_MINIMUM_AMOUNT);
     }
 }
 

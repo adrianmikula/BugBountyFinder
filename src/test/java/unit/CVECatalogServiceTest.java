@@ -146,7 +146,8 @@ class CVECatalogServiceTest {
         // Then
         StepVerifier.create(result)
                 .expectNextCount(1)
-                .verifyComplete();
+                .expectComplete()
+                .verify(java.time.Duration.ofSeconds(5));
 
         verify(catalogRepository, times(1)).save(any(CVECatalogEntity.class));
     }

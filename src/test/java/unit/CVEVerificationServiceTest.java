@@ -187,17 +187,22 @@ class CVEVerificationServiceTest {
         mockChatResponse(confirmationResponse);
 
         when(bugFindingRepository.save(any(BugFindingEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> {
+                    BugFindingEntity saved = invocation.getArgument(0);
+                    // Update the entity to reflect saved state
+                    return saved;
+                });
         when(bugFindingMapper.toEntity(any(BugFinding.class)))
                 .thenAnswer(invocation -> {
                     BugFinding finding = invocation.getArgument(0);
-                    return BugFindingEntity.builder()
+                    BugFindingEntity mappedEntity = BugFindingEntity.builder()
                             .id(finding.getId())
                             .cveId(finding.getCveId())
                             .status(BugFindingEntity.BugFindingStatus.valueOf(finding.getStatus().name()))
                             .presenceConfidence(finding.getPresenceConfidence())
                             .fixConfidence(finding.getFixConfidence())
                             .build();
+                    return mappedEntity;
                 });
         when(bugFindingMapper.toDomain(any(BugFindingEntity.class)))
                 .thenAnswer(invocation -> {
@@ -206,8 +211,8 @@ class CVEVerificationServiceTest {
                             .id(e.getId())
                             .cveId(e.getCveId())
                             .status(BugFinding.BugFindingStatus.valueOf(e.getStatus().name()))
-                            .presenceConfidence(e.getPresenceConfidence())
-                            .fixConfidence(e.getFixConfidence())
+                            .presenceConfidence(e.getPresenceConfidence() != null ? e.getPresenceConfidence() : 0.0)
+                            .fixConfidence(e.getFixConfidence() != null ? e.getFixConfidence() : 0.0)
                             .build();
                 });
 
@@ -219,9 +224,12 @@ class CVEVerificationServiceTest {
                 .assertNext(finding -> {
                     assertNotNull(finding);
                     assertEquals(findingId, finding.getId());
-                    assertTrue(finding.getPresenceConfidence() >= 0.7);
+                    assertNotNull(finding.getPresenceConfidence(), "Presence confidence should not be null");
+                    assertTrue(finding.getPresenceConfidence() >= 0.7, 
+                            "Presence confidence should be >= 0.7, but was: " + finding.getPresenceConfidence());
                 })
-                .verifyComplete();
+                .expectComplete()
+                .verify(java.time.Duration.ofSeconds(5));
 
         verify(bugFindingRepository, atLeastOnce()).save(any(BugFindingEntity.class));
     }
