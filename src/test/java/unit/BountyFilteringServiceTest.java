@@ -2,6 +2,8 @@ package com.bugbounty.bounty.triage;
 
 import com.bugbounty.bounty.domain.Bounty;
 import com.bugbounty.bounty.domain.BountyStatus;
+import com.bugbounty.repository.entity.RepositoryEntity;
+import com.bugbounty.repository.repository.RepositoryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Disabled;
@@ -18,11 +20,14 @@ import org.springframework.ai.chat.ChatClient;
 import org.springframework.ai.chat.ChatResponse;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.doReturn;
 
@@ -40,6 +45,9 @@ class BountyFilteringServiceTest {
     @Mock
     private AssistantMessage assistantMessage;
 
+    @Mock
+    private RepositoryRepository repositoryRepository;
+
     private ObjectMapper objectMapper;
 
     private BountyFilteringService filteringService;
@@ -48,7 +56,16 @@ class BountyFilteringServiceTest {
     void setUp() {
         // Use real ObjectMapper for JSON parsing
         objectMapper = new ObjectMapper();
-        filteringService = new BountyFilteringService(chatClient, objectMapper);
+        filteringService = new BountyFilteringService(chatClient, objectMapper, repositoryRepository);
+        
+        // Set default supported languages and max complexity via reflection
+        ReflectionTestUtils.setField(filteringService, "supportedLanguagesConfig", "Java,TypeScript,JavaScript,Python");
+        ReflectionTestUtils.setField(filteringService, "maxComplexity", "simple");
+        ReflectionTestUtils.setField(filteringService, "maxTimeMinutes", 60);
+        ReflectionTestUtils.setField(filteringService, "minConfidence", 0.7);
+        
+        // Default mock: repository not found (unknown language)
+        lenient().when(repositoryRepository.findByUrl(anyString())).thenReturn(Optional.empty());
         
         // Don't reset mocks here - let each test set up its own mocks
         // This avoids issues with mock state between tests
@@ -492,6 +509,467 @@ class BountyFilteringServiceTest {
         // Then
         assertNotNull(result);
         assertFalse(result.shouldProcess()); // Rejected due to time exceeding default threshold
+    }
+
+    // Language Filtering Tests
+
+    @Test
+    @DisplayName("Should reject bounty with unsupported language")
+    void shouldRejectBountyWithUnsupportedLanguage() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-lang-1")
+                .repositoryUrl("https://github.com/owner/repo")
+                .platform("algora")
+                .amount(new BigDecimal("100.00"))
+                .title("Fix bug")
+                .description("Bug description")
+                .status(BountyStatus.OPEN)
+                .build();
+
+        RepositoryEntity repoEntity = RepositoryEntity.builder()
+                .url("https://github.com/owner/repo")
+                .language("Rust") // Not in supported languages
+                .build();
+        when(repositoryRepository.findByUrl("https://github.com/owner/repo"))
+                .thenReturn(Optional.of(repoEntity));
+
+        // When
+        FilterResult result = filteringService.shouldProcess(bounty);
+
+        // Then
+        assertNotNull(result);
+        assertFalse(result.shouldProcess());
+        assertTrue(result.reason().contains("Language 'Rust' not supported"));
+        assertTrue(result.reason().contains("Java") || result.reason().contains("JavaScript") || 
+                  result.reason().contains("TypeScript") || result.reason().contains("Python"));
+        // Should not call LLM if language check fails
+        verify(chatClient, never()).call(any(Prompt.class));
+    }
+
+    @Test
+    @DisplayName("Should accept bounty with supported language")
+    void shouldAcceptBountyWithSupportedLanguage() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-lang-2")
+                .repositoryUrl("https://github.com/owner/repo")
+                .platform("algora")
+                .amount(new BigDecimal("100.00"))
+                .title("Fix simple typo")
+                .description("Simple typo fix")
+                .status(BountyStatus.OPEN)
+                .build();
+
+        RepositoryEntity repoEntity = RepositoryEntity.builder()
+                .url("https://github.com/owner/repo")
+                .language("Java") // Supported language
+                .build();
+        when(repositoryRepository.findByUrl("https://github.com/owner/repo"))
+                .thenReturn(Optional.of(repoEntity));
+
+        String jsonResponse = """
+                {
+                  "shouldProcess": true,
+                  "confidence": 0.9,
+                  "estimatedTimeMinutes": 15,
+                  "complexity": "simple",
+                  "reason": "Simple typo fix"
+                }
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
+
+        // When
+        FilterResult result = filteringService.shouldProcess(bounty);
+
+        // Then
+        assertNotNull(result);
+        assertTrue(result.shouldProcess());
+        // Should call LLM after language check passes
+        verify(chatClient, times(1)).call(any(Prompt.class));
+    }
+
+    @Test
+    @DisplayName("Should accept bounty with unknown language (passes to LLM)")
+    void shouldAcceptBountyWithUnknownLanguage() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-lang-3")
+                .repositoryUrl("https://github.com/owner/repo")
+                .platform("algora")
+                .amount(new BigDecimal("100.00"))
+                .title("Fix bug")
+                .description("Bug description")
+                .status(BountyStatus.OPEN)
+                .build();
+
+        // Repository not found in database (unknown language)
+        when(repositoryRepository.findByUrl("https://github.com/owner/repo"))
+                .thenReturn(Optional.empty());
+
+        String jsonResponse = """
+                {
+                  "shouldProcess": true,
+                  "confidence": 0.8,
+                  "estimatedTimeMinutes": 20,
+                  "complexity": "simple",
+                  "reason": "Simple fix"
+                }
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
+
+        // When
+        FilterResult result = filteringService.shouldProcess(bounty);
+
+        // Then
+        assertNotNull(result);
+        // Should pass through to LLM when language is unknown
+        assertTrue(result.shouldProcess());
+        verify(chatClient, times(1)).call(any(Prompt.class));
+    }
+
+    @Test
+    @DisplayName("Should normalize language aliases (JS -> JavaScript)")
+    void shouldNormalizeLanguageAliases() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-lang-4")
+                .repositoryUrl("https://github.com/owner/repo")
+                .platform("algora")
+                .amount(new BigDecimal("100.00"))
+                .title("Fix bug")
+                .description("Bug description")
+                .status(BountyStatus.OPEN)
+                .build();
+
+        RepositoryEntity repoEntity = RepositoryEntity.builder()
+                .url("https://github.com/owner/repo")
+                .language("JS") // Should normalize to JavaScript
+                .build();
+        when(repositoryRepository.findByUrl("https://github.com/owner/repo"))
+                .thenReturn(Optional.of(repoEntity));
+
+        String jsonResponse = """
+                {
+                  "shouldProcess": true,
+                  "confidence": 0.9,
+                  "estimatedTimeMinutes": 15,
+                  "complexity": "simple",
+                  "reason": "Simple fix"
+                }
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
+
+        // When
+        FilterResult result = filteringService.shouldProcess(bounty);
+
+        // Then
+        assertNotNull(result);
+        assertTrue(result.shouldProcess()); // JS should be normalized to JavaScript and accepted
+        verify(chatClient, times(1)).call(any(Prompt.class));
+    }
+
+    @Test
+    @DisplayName("Should normalize TypeScript alias (TS -> TypeScript)")
+    void shouldNormalizeTypeScriptAlias() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-lang-5")
+                .repositoryUrl("https://github.com/owner/repo")
+                .platform("algora")
+                .amount(new BigDecimal("100.00"))
+                .title("Fix bug")
+                .description("Bug description")
+                .status(BountyStatus.OPEN)
+                .build();
+
+        RepositoryEntity repoEntity = RepositoryEntity.builder()
+                .url("https://github.com/owner/repo")
+                .language("TS") // Should normalize to TypeScript
+                .build();
+        when(repositoryRepository.findByUrl("https://github.com/owner/repo"))
+                .thenReturn(Optional.of(repoEntity));
+
+        String jsonResponse = """
+                {
+                  "shouldProcess": true,
+                  "confidence": 0.9,
+                  "estimatedTimeMinutes": 15,
+                  "complexity": "simple",
+                  "reason": "Simple fix"
+                }
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
+
+        // When
+        FilterResult result = filteringService.shouldProcess(bounty);
+
+        // Then
+        assertNotNull(result);
+        assertTrue(result.shouldProcess()); // TS should be normalized to TypeScript and accepted
+        verify(chatClient, times(1)).call(any(Prompt.class));
+    }
+
+    @Test
+    @DisplayName("Should normalize Python alias (PY -> Python)")
+    void shouldNormalizePythonAlias() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-lang-6")
+                .repositoryUrl("https://github.com/owner/repo")
+                .platform("algora")
+                .amount(new BigDecimal("100.00"))
+                .title("Fix bug")
+                .description("Bug description")
+                .status(BountyStatus.OPEN)
+                .build();
+
+        RepositoryEntity repoEntity = RepositoryEntity.builder()
+                .url("https://github.com/owner/repo")
+                .language("PY") // Should normalize to Python
+                .build();
+        when(repositoryRepository.findByUrl("https://github.com/owner/repo"))
+                .thenReturn(Optional.of(repoEntity));
+
+        String jsonResponse = """
+                {
+                  "shouldProcess": true,
+                  "confidence": 0.9,
+                  "estimatedTimeMinutes": 15,
+                  "complexity": "simple",
+                  "reason": "Simple fix"
+                }
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
+
+        // When
+        FilterResult result = filteringService.shouldProcess(bounty);
+
+        // Then
+        assertNotNull(result);
+        assertTrue(result.shouldProcess()); // PY should be normalized to Python and accepted
+        verify(chatClient, times(1)).call(any(Prompt.class));
+    }
+
+    // Complexity Filtering Tests
+
+    @Test
+    @DisplayName("Should reject complex issues when maxComplexity is simple")
+    void shouldRejectComplexIssuesWhenMaxComplexityIsSimple() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-complex-1")
+                .repositoryUrl("https://github.com/owner/repo")
+                .platform("algora")
+                .amount(new BigDecimal("100.00"))
+                .title("Complex architectural change")
+                .description("Requires refactoring entire system")
+                .status(BountyStatus.OPEN)
+                .build();
+
+        RepositoryEntity repoEntity = RepositoryEntity.builder()
+                .url("https://github.com/owner/repo")
+                .language("Java")
+                .build();
+        when(repositoryRepository.findByUrl("https://github.com/owner/repo"))
+                .thenReturn(Optional.of(repoEntity));
+
+        // LLM returns complex complexity
+        String jsonResponse = """
+                {
+                  "shouldProcess": true,
+                  "confidence": 0.8,
+                  "estimatedTimeMinutes": 30,
+                  "complexity": "complex",
+                  "reason": "Complex but fixable"
+                }
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
+
+        // When
+        FilterResult result = filteringService.shouldProcess(bounty);
+
+        // Then
+        assertNotNull(result);
+        assertFalse(result.shouldProcess());
+        assertTrue(result.reason().contains("complexity too high") || result.reason().contains("complex"));
+    }
+
+    @Test
+    @DisplayName("Should reject moderate complexity when maxComplexity is simple")
+    void shouldRejectModerateComplexityWhenMaxComplexityIsSimple() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-complex-2")
+                .repositoryUrl("https://github.com/owner/repo")
+                .platform("algora")
+                .amount(new BigDecimal("100.00"))
+                .title("Moderate refactoring needed")
+                .description("Requires some refactoring")
+                .status(BountyStatus.OPEN)
+                .build();
+
+        RepositoryEntity repoEntity = RepositoryEntity.builder()
+                .url("https://github.com/owner/repo")
+                .language("Java")
+                .build();
+        when(repositoryRepository.findByUrl("https://github.com/owner/repo"))
+                .thenReturn(Optional.of(repoEntity));
+
+        // LLM returns moderate complexity
+        String jsonResponse = """
+                {
+                  "shouldProcess": true,
+                  "confidence": 0.8,
+                  "estimatedTimeMinutes": 30,
+                  "complexity": "moderate",
+                  "reason": "Moderate complexity"
+                }
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
+
+        // When
+        FilterResult result = filteringService.shouldProcess(bounty);
+
+        // Then
+        assertNotNull(result);
+        assertFalse(result.shouldProcess());
+        assertTrue(result.reason().contains("moderate complexity") || 
+                  result.reason().contains("only simple bugs accepted"));
+    }
+
+    @Test
+    @DisplayName("Should accept simple complexity when maxComplexity is simple")
+    void shouldAcceptSimpleComplexityWhenMaxComplexityIsSimple() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-complex-3")
+                .repositoryUrl("https://github.com/owner/repo")
+                .platform("algora")
+                .amount(new BigDecimal("100.00"))
+                .title("Fix typo")
+                .description("Simple typo fix")
+                .status(BountyStatus.OPEN)
+                .build();
+
+        RepositoryEntity repoEntity = RepositoryEntity.builder()
+                .url("https://github.com/owner/repo")
+                .language("Java")
+                .build();
+        when(repositoryRepository.findByUrl("https://github.com/owner/repo"))
+                .thenReturn(Optional.of(repoEntity));
+
+        // LLM returns simple complexity
+        String jsonResponse = """
+                {
+                  "shouldProcess": true,
+                  "confidence": 0.9,
+                  "estimatedTimeMinutes": 10,
+                  "complexity": "simple",
+                  "reason": "Simple typo fix"
+                }
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
+
+        // When
+        FilterResult result = filteringService.shouldProcess(bounty);
+
+        // Then
+        assertNotNull(result);
+        assertTrue(result.shouldProcess());
+        assertEquals(0.9, result.confidence(), 0.01);
+    }
+
+    @Test
+    @DisplayName("Should handle case-insensitive complexity matching")
+    void shouldHandleCaseInsensitiveComplexityMatching() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-complex-4")
+                .repositoryUrl("https://github.com/owner/repo")
+                .platform("algora")
+                .amount(new BigDecimal("100.00"))
+                .title("Complex issue")
+                .description("Complex issue")
+                .status(BountyStatus.OPEN)
+                .build();
+
+        RepositoryEntity repoEntity = RepositoryEntity.builder()
+                .url("https://github.com/owner/repo")
+                .language("Java")
+                .build();
+        when(repositoryRepository.findByUrl("https://github.com/owner/repo"))
+                .thenReturn(Optional.of(repoEntity));
+
+        // LLM returns uppercase COMPLEX
+        String jsonResponse = """
+                {
+                  "shouldProcess": true,
+                  "confidence": 0.8,
+                  "estimatedTimeMinutes": 30,
+                  "complexity": "COMPLEX",
+                  "reason": "Complex issue"
+                }
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
+
+        // When
+        FilterResult result = filteringService.shouldProcess(bounty);
+
+        // Then
+        assertNotNull(result);
+        assertFalse(result.shouldProcess()); // Should reject uppercase COMPLEX
+    }
+
+    @Test
+    @DisplayName("Should handle missing complexity field gracefully")
+    void shouldHandleMissingComplexityFieldGracefully() {
+        // Given
+        Bounty bounty = Bounty.builder()
+                .issueId("issue-complex-5")
+                .repositoryUrl("https://github.com/owner/repo")
+                .platform("algora")
+                .amount(new BigDecimal("100.00"))
+                .title("Fix bug")
+                .description("Bug description")
+                .status(BountyStatus.OPEN)
+                .build();
+
+        RepositoryEntity repoEntity = RepositoryEntity.builder()
+                .url("https://github.com/owner/repo")
+                .language("Java")
+                .build();
+        when(repositoryRepository.findByUrl("https://github.com/owner/repo"))
+                .thenReturn(Optional.of(repoEntity));
+
+        // LLM response without complexity field
+        String jsonResponse = """
+                {
+                  "shouldProcess": true,
+                  "confidence": 0.9,
+                  "estimatedTimeMinutes": 15,
+                  "reason": "Simple fix"
+                }
+                """;
+        when(chatClient.call(any(Prompt.class))).thenReturn(chatResponse);
+        mockChatResponseResult(jsonResponse);
+
+        // When
+        FilterResult result = filteringService.shouldProcess(bounty);
+
+        // Then
+        assertNotNull(result);
+        // Should still process if complexity field is missing
+        assertTrue(result.shouldProcess());
     }
 }
 

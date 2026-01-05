@@ -1,13 +1,20 @@
 # Bug Bounty Finder
 
-Automated bug bounty and PR bounty hunting system built with Spring Boot 3.x.
+Intelligent bounty triage and assistance system built with Spring Boot 3.x.
+
+**Reality Check**: Most bounties require POCs, multiple iterations, and deep understanding. This system focuses on **brutal filtering** to find the 2-3% of truly simple bugs, then provides **AI assistance** (not full automation) to help you fix them efficiently.
 
 ## Features
 
-- **Bounty Discovery**: Polls Algora and Polar.sh platforms to discover bounties (requires login/API keys)
-- **GitHub Issue Analysis**: Analyzes GitHub issues linked from Algora/Polar.sh bounties to understand bugs
-- **Root Cause Analysis**: Uses LLM to identify root causes of reported bugs
-- **Fix Generation**: Automatically generates code fixes for discovered bounties
+- **Bounty Discovery**: Polls Algora, Polar.sh, and GitPay.me platforms to discover bounties (requires login/API keys)
+- **Brutal Triage/Filtering**: Aggressive filtering to find truly simple bugs:
+  - **Language Filter**: Only processes bounties in languages you know (configurable)
+  - **Bounty Amount Filter**: Rejects high-value bounties (>$200) that usually indicate complexity
+  - **Complexity Filter**: Brutal LLM-based filtering that rejects 95%+ of bounties
+  - **Reality Check**: Only accepts trivial fixes (single file, no POC, no iterations)
+- **Context Gathering**: Pre-analyzes issues and gathers relevant code snippets
+- **Fix Assistance**: Generates draft fixes as starting points (requires human refinement)
+- **Human-in-the-Loop**: Designed to assist developers, not replace them
 - **GitHub Push Webhooks**: Real-time notifications when commits are pushed to repositories
 - **Repository Management**: Clones and manages GitHub repositories via REST API
 - **Repository API**: Add, list, and manage repositories through `/api/repositories` endpoints

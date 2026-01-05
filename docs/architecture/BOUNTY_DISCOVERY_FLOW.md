@@ -29,6 +29,17 @@ The system discovers bounties by **polling Algora and Polar.sh platforms**, not 
          │ - title, description
          │
          ▼
+┌─────────────────┐
+│  GitPay.me API  │  ← Poll for bounties (requires login/API key)
+└────────┬────────┘
+         │
+         │ Returns bounties with:
+         │ - repositoryUrl (GitHub repo)
+         │ - issueId (GitHub issue number)
+         │ - amount (bounty amount)
+         │ - title, description
+         │
+         ▼
 ┌─────────────────────────┐
 │  BountyPollingService   │
 │  - Filters by min amount│
@@ -64,11 +75,12 @@ The system discovers bounties by **polling Algora and Polar.sh platforms**, not 
 **✅ Correct Approach:**
 - Poll Algora API → Get bounties → Each bounty links to a GitHub issue
 - Poll Polar.sh API → Get bounties → Each bounty links to a GitHub issue
+- Poll GitPay.me API → Get bounties → Each bounty links to a GitHub issue
 - The platforms are the source of truth for which issues have bounties
 
 ### 2. Authentication Required
 
-Both platforms require authentication:
+All platforms require authentication:
 
 - **Algora**: 
   - Sign up at https://algora.io
@@ -81,6 +93,13 @@ Both platforms require authentication:
   - Log in to your account
   - Generate API key from settings
   - Set `POLAR_API_KEY` environment variable
+
+- **GitPay.me**:
+  - Sign up at https://gitpay.me
+  - Log in to your account
+  - Generate API key from settings
+  - Set `GITPAY_API_KEY` environment variable
+  - See [GitPay Documentation](https://docs.gitpay.me/) for API details
 
 ### 3. Bounty Data Structure
 
@@ -125,6 +144,10 @@ app:
         api-url: https://api.polar.sh
         api-key: ${POLAR_API_KEY:}  # Required - from login
         rate-limit-per-minute: 60
+      gitpay:
+        api-url: https://api.gitpay.me  # Adjust if GitPay uses different URL
+        api-key: ${GITPAY_API_KEY:}  # Required - from login
+        rate-limit-per-minute: 60
 ```
 
 ### Environment Variables
@@ -133,6 +156,7 @@ app:
 # Required - Get these by logging into the platforms
 ALGORA_API_KEY=your-algora-api-key-from-login
 POLAR_API_KEY=your-polar-api-key-from-login
+GITPAY_API_KEY=your-gitpay-api-key-from-login
 
 # Optional but recommended
 GITHUB_API_TOKEN=your-github-pat

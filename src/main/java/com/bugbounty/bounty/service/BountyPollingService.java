@@ -3,6 +3,7 @@ package com.bugbounty.bounty.service;
 import com.bugbounty.bounty.domain.Bounty;
 import com.bugbounty.bounty.mapper.BountyMapper;
 import com.bugbounty.bounty.repository.BountyRepository;
+import com.bugbounty.bounty.service.GitPayApiClient;
 import com.bugbounty.bounty.triage.BountyFilteringService;
 import com.bugbounty.bounty.triage.FilterResult;
 import com.bugbounty.bounty.triage.TriageQueueService;
@@ -22,7 +23,8 @@ public class BountyPollingService {
 
     private final AlgoraApiClient algoraApiClient;
     private final PolarApiClient polarApiClient;
-    // Note: GitHubIssueScannerService is deprecated - bounties come from Algora/Polar.sh
+    private final GitPayApiClient gitpayApiClient;
+    // Note: GitHubIssueScannerService is deprecated - bounties come from platforms
     @SuppressWarnings("unused")
     private final GitHubIssueScannerService githubIssueScannerService;
     private final BountyRepository bountyRepository;
@@ -130,12 +132,13 @@ public class BountyPollingService {
     public Flux<Bounty> pollAllPlatforms(BigDecimal minimumAmount) {
         log.debug("Polling all platforms for new bounties");
         
-        // Note: Bounties are discovered via Algora and Polar.sh platforms
+        // Note: Bounties are discovered via Algora, Polar.sh, and GitPay platforms
         // These platforms link bounties to GitHub issues
         // We do NOT scan GitHub issues directly for dollar amounts
         return Flux.merge(
                 pollAlgora(minimumAmount),
-                pollPolar(minimumAmount)
+                pollPolar(minimumAmount),
+                pollGitPay(minimumAmount)
         );
     }
     
@@ -154,6 +157,46 @@ public class BountyPollingService {
     @Deprecated
     public Flux<Bounty> pollGitHub() {
         return pollGitHub(DEFAULT_MINIMUM_AMOUNT);
+    }
+    
+    /**
+     * Poll GitPay.me for bounties.
+     * GitPay is an open-source platform for completing tasks in exchange for bounties.
+     * 
+     * @param minimumAmount Minimum bounty amount to consider
+     * @return Flux of bounties from GitPay
+     */
+    public Flux<Bounty> pollGitPay(BigDecimal minimumAmount) {
+        log.debug("Polling GitPay API for new bounties");
+        
+        return gitpayApiClient.fetchBounties()
+                .filter(bounty -> !bountyRepository.existsByIssueIdAndPlatform(
+                        bounty.getIssueId(), 
+                        bounty.getPlatform()))
+                .filter(bounty -> bounty.meetsMinimumAmount(minimumAmount))
+                .flatMap(bounty -> {
+                    // Save to database
+                    log.info("Saving new bounty: {} from {}", bounty.getIssueId(), bounty.getPlatform());
+                    var entity = bountyMapper.toEntity(bounty);
+                    var saved = bountyRepository.save(entity);
+                    Bounty savedBounty = bountyMapper.toDomain(saved);
+                    
+                    // Filter and enqueue for triage
+                    FilterResult filterResult = filteringService.shouldProcess(savedBounty);
+                    if (filterResult.shouldProcess()) {
+                        log.info("Bounty {} passed filtering, enqueuing for triage", savedBounty.getIssueId());
+                        triageQueueService.enqueue(savedBounty);
+                    } else {
+                        log.debug("Bounty {} filtered out: {}", savedBounty.getIssueId(), filterResult.reason());
+                    }
+                    
+                    return Flux.just(savedBounty);
+                })
+                .doOnError(error -> log.error("Error polling GitPay API", error));
+    }
+    
+    public Flux<Bounty> pollGitPay() {
+        return pollGitPay(DEFAULT_MINIMUM_AMOUNT);
     }
 }
 

@@ -133,7 +133,46 @@ POLAR_API_KEY=your-polar-api-key
 
 ---
 
-### 5. NVD API Key 🔑 Optional (Recommended)
+### 5. GitPay.me API Key 🔑 Required
+
+**Purpose**: Authenticate requests to GitPay.me bounty platform
+
+**Why needed**:
+- GitPay.me is an open-source platform for completing tasks in exchange for bounties
+- Authentication is required to access the API
+- Without authentication, you cannot discover bounties from GitPay
+
+**How to get**:
+1. Visit: https://gitpay.me
+2. **Sign up or log in** to create an account
+3. Navigate to **Settings** → **API** or **Developer Settings**
+4. Generate a new API key or access token
+5. Copy the key (keep it secure!)
+
+**Set environment variable**:
+```bash
+export GITPAY_API_KEY="your-gitpay-api-key"
+```
+
+**Or add to `.env` file**:
+```
+GITPAY_API_KEY=your-gitpay-api-key
+```
+
+**Important**:
+- You need to **log in** to GitPay.me to get an API key
+- The API key is required to discover bounties
+- Bounties from GitPay link to GitHub issues
+- **Note**: GitPay API structure may vary - the implementation is flexible and can be adjusted
+
+**References**:
+- GitPay Website: https://gitpay.me/
+- GitPay Documentation: https://docs.gitpay.me/
+- GitPay Merchant Manual: https://doc.gitpay.tech/merchant/index.html
+
+---
+
+### 6. NVD API Key 🔑 Optional (Recommended)
 
 **Purpose**: Higher rate limits for NVD (National Vulnerability Database) API
 
@@ -167,7 +206,7 @@ NVD_API_KEY=your-nvd-api-key
 
 ---
 
-### 6. Ollama Configuration 🦙 No API Key Needed
+### 7. Ollama Configuration 🦙 No API Key Needed
 
 **Purpose**: Local LLM inference (no external API calls)
 
@@ -200,12 +239,13 @@ export OLLAMA_MODEL="deepseek-coder:6.7b"
 - [ ] Generate GitHub Webhook Secret
 - [ ] **Sign up and get Algora API Key** (Required - log in to algora.io)
 - [ ] **Sign up and get Polar.sh API Key** (Required - log in to polar.sh)
+- [ ] **Sign up and get GitPay.me API Key** (Required - log in to gitpay.me)
 - [ ] (Recommended) Get NVD API Key
 - [ ] Install and configure Ollama
 - [ ] Create `.env` file with all keys
 - [ ] Test configuration
 
-**Note**: Algora and Polar.sh require you to create accounts and log in to obtain API keys. These platforms are the source of bounty information - they link bounties to GitHub issues.
+**Note**: Algora, Polar.sh, and GitPay.me require you to create accounts and log in to obtain API keys. These platforms are the source of bounty information - they link bounties to GitHub issues.
 
 ---
 
@@ -218,9 +258,20 @@ Create a `.env` file in your project root with:
 GITHUB_API_TOKEN=ghp_your_github_pat_here
 GITHUB_WEBHOOK_SECRET=your-generated-webhook-secret-here
 
-# Bug Bounty Platforms (optional)
+# Bug Bounty Platforms (required - get by logging in)
 ALGORA_API_KEY=your-algora-api-key
 POLAR_API_KEY=your-polar-api-key
+GITPAY_API_KEY=your-gitpay-api-key
+
+# Triage/Filtering Configuration
+# Languages you know and can human-verify (comma-separated)
+TRIAGE_SUPPORTED_LANGUAGES=Java,TypeScript,JavaScript,Python
+# Maximum complexity: simple, moderate, or complex (use "simple" for quick cash)
+TRIAGE_MAX_COMPLEXITY=simple
+# Maximum time estimate in minutes
+TRIAGE_MAX_TIME_MINUTES=60
+# Minimum confidence (0.0-1.0)
+TRIAGE_MIN_CONFIDENCE=0.7
 
 # NVD (optional but recommended)
 NVD_API_KEY=your-nvd-api-key
@@ -340,4 +391,5 @@ After setting up API keys:
 - **Ollama**: https://ollama.ai/docs
 - **Algora**: https://algora.io (check their documentation)
 - **Polar.sh**: https://polar.sh (check their documentation)
+- **GitPay.me**: https://gitpay.me/ (see https://docs.gitpay.me/ and https://doc.gitpay.tech/merchant/index.html)
 

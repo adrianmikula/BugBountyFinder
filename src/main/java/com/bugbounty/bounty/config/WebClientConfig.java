@@ -18,11 +18,17 @@ public class WebClientConfig {
     @Value("${app.bounty.platforms.polar.api-url}")
     private String polarApiUrl;
 
+    @Value("${app.bounty.platforms.gitpay.api-url:https://api.gitpay.me}")
+    private String gitpayApiUrl;
+
     @Value("${app.bounty.platforms.algora.api-key:}")
     private String algoraApiKey;
 
     @Value("${app.bounty.platforms.polar.api-key:}")
     private String polarApiKey;
+
+    @Value("${app.bounty.platforms.gitpay.api-key:}")
+    private String gitpayApiKey;
 
     @Value("${app.bounty.platforms.github.api-token:}")
     private String githubApiToken;
@@ -58,6 +64,20 @@ public class WebClientConfig {
         if (polarApiKey != null && !polarApiKey.isEmpty()) {
             builder.defaultHeader("Authorization", "Bearer " + polarApiKey)
                    .defaultHeader("X-API-Key", polarApiKey);
+        }
+        
+        return builder.build();
+    }
+
+    @Bean("gitpayWebClient")
+    public WebClient gitpayWebClient() {
+        WebClient.Builder builder = WebClient.builder()
+                .baseUrl(gitpayApiUrl);
+        
+        // Add API key authentication if provided
+        if (gitpayApiKey != null && !gitpayApiKey.isEmpty()) {
+            builder.defaultHeader("Authorization", "Bearer " + gitpayApiKey)
+                   .defaultHeader("X-API-Key", gitpayApiKey);
         }
         
         return builder.build();

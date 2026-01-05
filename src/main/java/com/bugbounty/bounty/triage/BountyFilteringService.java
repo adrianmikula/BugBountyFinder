@@ -31,20 +31,78 @@ public class BountyFilteringService {
 
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
+    private final RepositoryRepository repositoryRepository;
+
+    @Value("${app.bounty.triage.supported-languages:Java,TypeScript,JavaScript,Python}")
+    private String supportedLanguagesConfig;
+
+    @Value("${app.bounty.triage.max-complexity:simple}")
+    private String maxComplexity; // simple, moderate, complex
+
+    @Value("${app.bounty.triage.max-time-minutes:60}")
+    private int maxTimeMinutes;
+
+    @Value("${app.bounty.triage.min-confidence:0.9}")
+    private double minConfidence;
+
+    @Value("${app.bounty.triage.max-bounty-amount:200}")
+    private String maxBountyAmountStr;
+
+    /**
+     * Get set of supported languages from configuration.
+     */
+    private Set<String> getSupportedLanguages() {
+        return Arrays.stream(supportedLanguagesConfig.split(","))
+                .map(String::trim)
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Get maximum bounty amount from configuration.
+     * Higher bounties usually indicate complexity.
+     */
+    private BigDecimal getMaxBountyAmount() {
+        try {
+            return new BigDecimal(maxBountyAmountStr);
+        } catch (Exception e) {
+            log.warn("Invalid max-bounty-amount config '{}', using default 200", maxBountyAmountStr, e);
+            return new BigDecimal("200");
+        }
+    }
 
     public FilterResult shouldProcess(Bounty bounty) {
-        return shouldProcess(bounty, DEFAULT_MIN_CONFIDENCE, DEFAULT_MAX_TIME_MINUTES);
+        return shouldProcess(bounty, minConfidence, maxTimeMinutes);
     }
 
     public FilterResult shouldProcess(Bounty bounty, double minConfidence) {
-        return shouldProcess(bounty, minConfidence, DEFAULT_MAX_TIME_MINUTES);
+        return shouldProcess(bounty, minConfidence, maxTimeMinutes);
     }
 
     public FilterResult shouldProcess(Bounty bounty, double minConfidence, int maxTimeMinutes) {
         try {
             log.debug("Filtering bounty: {} - {}", bounty.getIssueId(), bounty.getTitle());
 
-            String promptText = buildPrompt(bounty);
+            // Step 1: Pre-filter by language (fast, no LLM call)
+            FilterResult languageCheck = checkLanguage(bounty);
+            if (!languageCheck.shouldProcess()) {
+                log.debug("Bounty {} rejected at language check: {}", bounty.getIssueId(), languageCheck.reason());
+                return languageCheck;
+            }
+
+            // Step 1.5: Pre-filter by bounty amount (fast, no LLM call)
+            // Higher bounties usually indicate complexity - reject them early
+            BigDecimal maxAmount = getMaxBountyAmount();
+            if (bounty.getAmount() != null && bounty.getAmount().compareTo(maxAmount) > 0) {
+                log.debug("Bounty {} rejected: amount {} exceeds maximum {}", 
+                        bounty.getIssueId(), bounty.getAmount(), maxAmount);
+                return new FilterResult(false, 0.0, 0, 
+                        String.format("Bounty amount %s exceeds maximum %s (higher amounts usually indicate complexity)", 
+                                bounty.getAmount(), maxAmount));
+            }
+
+            // Step 2: LLM-based complexity and feasibility analysis
+            String promptText = buildPrompt(bounty, languageCheck);
             Prompt aiPrompt = new Prompt(new UserMessage(promptText));
 
             ChatResponse response = chatClient.call(aiPrompt);
@@ -67,8 +125,9 @@ public class BountyFilteringService {
                         result.reason() + " (time estimate too high)");
             }
 
-            log.info("Bounty {} accepted: confidence={}, time={}min", 
-                    bounty.getIssueId(), result.confidence(), result.estimatedTimeMinutes());
+            log.info("Bounty {} accepted: confidence={}, time={}min, language={}", 
+                    bounty.getIssueId(), result.confidence(), result.estimatedTimeMinutes(), 
+                    getRepositoryLanguage(bounty));
             return result;
 
         } catch (Exception e) {
@@ -78,39 +137,141 @@ public class BountyFilteringService {
         }
     }
 
-    private String buildPrompt(Bounty bounty) {
+    /**
+     * Pre-filter by language - reject if repository language is not in supported languages.
+     * This is a fast check that doesn't require LLM calls.
+     */
+    private FilterResult checkLanguage(Bounty bounty) {
+        String repositoryLanguage = getRepositoryLanguage(bounty);
+        
+        if (repositoryLanguage == null || repositoryLanguage.isEmpty()) {
+            // If we can't determine language, let LLM decide (might be a new repo)
+            log.debug("Could not determine repository language for bounty {}", bounty.getIssueId());
+            return new FilterResult(true, 0.5, 0, "Language unknown - will check in LLM analysis");
+        }
+
+        Set<String> supportedLanguages = getSupportedLanguages();
+        String languageLower = repositoryLanguage.toLowerCase();
+
+        // Check exact match and common variations
+        boolean isSupported = supportedLanguages.contains(languageLower) ||
+                supportedLanguages.contains(normalizeLanguage(languageLower));
+
+        if (!isSupported) {
+            log.info("Bounty {} rejected: language '{}' not in supported languages: {}", 
+                    bounty.getIssueId(), repositoryLanguage, supportedLanguages);
+            return new FilterResult(false, 0.0, 0, 
+                    String.format("Language '%s' not supported. Supported: %s", 
+                            repositoryLanguage, String.join(", ", supportedLanguages)));
+        }
+
+        return new FilterResult(true, 1.0, 0, "Language supported: " + repositoryLanguage);
+    }
+
+    /**
+     * Normalize language names for matching (e.g., "TypeScript" -> "typescript", "JS" -> "javascript").
+     */
+    private String normalizeLanguage(String language) {
+        String normalized = language.toLowerCase().trim();
+        // Common aliases
+        if (normalized.equals("js") || normalized.equals("jsx") || normalized.equals("tsx")) {
+            return "javascript";
+        }
+        if (normalized.equals("ts")) {
+            return "typescript";
+        }
+        if (normalized.equals("py")) {
+            return "python";
+        }
+        return normalized;
+    }
+
+    /**
+     * Get repository language from database or infer from repository URL/name.
+     */
+    private String getRepositoryLanguage(Bounty bounty) {
+        if (bounty.getRepositoryUrl() == null) {
+            return null;
+        }
+
+        // Try to get from database first
+        Optional<RepositoryEntity> repoOpt = repositoryRepository.findByUrl(bounty.getRepositoryUrl());
+        if (repoOpt.isPresent() && repoOpt.get().getLanguage() != null) {
+            return repoOpt.get().getLanguage();
+        }
+
+        // Could infer from repository name or URL patterns, but for now return null
+        return null;
+    }
+
+    private String buildPrompt(Bounty bounty, FilterResult languageCheck) {
+        String repositoryLanguage = getRepositoryLanguage(bounty);
+        String languageInfo = repositoryLanguage != null ? 
+                String.format("Repository Language: %s (supported)", repositoryLanguage) : 
+                "Repository Language: Unknown";
+        
         return """
                 Analyze this bug bounty and determine if it should be processed.
+                
+                CRITICAL: We are looking for SIMPLE, QUICK bugs that can be fixed fast for quick cash.
+                BRUTAL REALITY CHECK: Most Algora bounties require full POCs, multiple PR iterations, 
+                and deep codebase understanding. We need to REJECT 95%+ of bounties and only accept 
+                truly trivial fixes that can be done in a single file with no POC required.
                 
                 Bounty Details:
                 - Issue ID: {issueId}
                 - Repository: {repositoryUrl}
+                - {languageInfo}
                 - Platform: {platform}
                 - Amount: {amount} {currency}
                 - Title: {title}
                 - Description: {description}
                 
-                Consider:
-                1. Is the issue clearly described and fixable?
-                2. Can it be fixed in under 60 minutes?
-                3. Is the bounty amount worth the effort?
-                4. Is there enough information to proceed?
-                5. Is it a simple bug fix vs. a complex refactoring?
+                CRITICAL REJECTION CRITERIA (reject if ANY apply):
+                1. **POC Required**: Mentions "proof", "exploit", "demonstration", "POC", "PoC", "proof of concept"
+                2. **Security Bug**: Security vulnerabilities need POCs to prove
+                3. **Multiple Files**: Requires changes in more than 1 file
+                4. **Architecture**: Mentions "refactor", "architecture", "design pattern", "restructure"
+                5. **Testing Required**: Needs new tests, test suites, or extensive testing
+                6. **Documentation**: Requires documentation updates
+                7. **Vague**: Description is unclear, incomplete, or missing steps
+                8. **High Value**: Bounty > $300 usually indicates complexity
+                9. **Performance**: Performance issues require profiling/benchmarking
+                10. **Integration**: Requires understanding external systems or APIs
+                11. **Multiple Iterations**: Any indication that feedback/iterations are expected
+                12. **Complex Logic**: Involves algorithms, data structures, or complex business logic
+                
+                ACCEPT ONLY if ALL of these are true:
+                1. **Single File**: Fix in exactly 1 file, no other files touched
+                2. **Trivial Bug**: Obvious error (typo, wrong variable name, missing null check, wrong operator)
+                3. **No POC**: Just a code fix, no proof/demonstration needed
+                4. **Clear Description**: Issue has clear steps, expected vs actual behavior
+                5. **Low Complexity**: Can understand the fix without reading other files
+                6. **No Testing**: Fix doesn't require new tests (or tests already exist)
+                7. **Low Value**: Bounty < $200 (simple fixes are usually lower value)
+                8. **Non-Security**: Not a security vulnerability
+                9. **Quick Fix**: Can be done in under {maxTime} minutes
+                10. **High Confidence**: 90%+ confidence this is truly trivial
+                
+                BE BRUTAL: If there's ANY doubt, REJECT. Better to miss a bounty than waste time on complex ones.
                 
                 Respond with a JSON object:
                 {{
                   "shouldProcess": true/false,
                   "confidence": 0.0-1.0,
                   "estimatedTimeMinutes": number,
-                  "reason": "brief explanation"
+                  "complexity": "simple|moderate|complex",
+                  "reason": "brief explanation - be specific about why accepted/rejected"
                 }}
                 """.replace("{issueId}", bounty.getIssueId())
                 .replace("{repositoryUrl}", bounty.getRepositoryUrl() != null ? bounty.getRepositoryUrl() : "N/A")
+                .replace("{languageInfo}", languageInfo)
                 .replace("{platform}", bounty.getPlatform())
                 .replace("{amount}", bounty.getAmount() != null ? bounty.getAmount().toString() : "N/A")
                 .replace("{currency}", bounty.getCurrency() != null ? bounty.getCurrency() : "USD")
                 .replace("{title}", bounty.getTitle() != null ? bounty.getTitle() : "N/A")
-                .replace("{description}", bounty.getDescription() != null ? bounty.getDescription() : "N/A");
+                .replace("{description}", bounty.getDescription() != null ? bounty.getDescription() : "N/A")
+                .replace("{maxTime}", String.valueOf(maxTimeMinutes));
     }
 
     private FilterResult parseResponse(String content) {
@@ -134,6 +295,25 @@ public class BountyFilteringService {
             double confidence = node.get("confidence").asDouble();
             int estimatedTime = node.get("estimatedTimeMinutes").asInt();
             String reason = node.has("reason") ? node.get("reason").asText() : "";
+            
+            // Additional complexity check
+            if (node.has("complexity")) {
+                String complexity = node.get("complexity").asText().toLowerCase();
+                
+                // Reject if complexity is too high
+                if ("complex".equals(complexity) && !"complex".equals(maxComplexity.toLowerCase())) {
+                    log.debug("Bounty rejected: complexity '{}' exceeds maximum '{}'", complexity, maxComplexity);
+                    return new FilterResult(false, confidence, estimatedTime, 
+                            reason + " (complexity too high: " + complexity + ")");
+                }
+                
+                // Be more strict with moderate complexity
+                if ("moderate".equals(complexity) && "simple".equals(maxComplexity.toLowerCase())) {
+                    log.debug("Bounty rejected: moderate complexity exceeds simple threshold");
+                    return new FilterResult(false, confidence, estimatedTime, 
+                            reason + " (moderate complexity, only simple bugs accepted)");
+                }
+            }
 
             return new FilterResult(shouldProcess, confidence, estimatedTime, reason);
         } catch (Exception e) {
